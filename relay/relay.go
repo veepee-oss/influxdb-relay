@@ -6,10 +6,12 @@ import (
 	"sync"
 )
 
+// Service -TODO-
 type Service struct {
 	relays map[string]Relay
 }
 
+// New -TODO-
 func New(config Config) (*Service, error) {
 	s := new(Service)
 	s.relays = make(map[string]Relay)
@@ -39,6 +41,7 @@ func New(config Config) (*Service, error) {
 	return s, nil
 }
 
+// Run -TODO-
 func (s *Service) Run() {
 	var wg sync.WaitGroup
 	wg.Add(len(s.relays))
@@ -57,12 +60,14 @@ func (s *Service) Run() {
 	wg.Wait()
 }
 
+// Stop -TODO-
 func (s *Service) Stop() {
 	for _, v := range s.relays {
 		v.Stop()
 	}
 }
 
+// Relay -TODO-
 type Relay interface {
 	Name() string
 	Run() error

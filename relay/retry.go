@@ -13,6 +13,7 @@ const (
 	retryMultiplier = 2
 )
 
+// Operation -TODO-
 type Operation func() error
 
 // Buffers and retries operations, if the buffer is full operations are dropped.

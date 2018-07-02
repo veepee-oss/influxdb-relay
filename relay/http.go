@@ -35,6 +35,7 @@ type HTTP struct {
 	backends []*httpBackend
 }
 
+// -TODO-
 const (
 	DefaultHTTPTimeout      = 10 * time.Second
 	DefaultMaxDelayInterval = 10 * time.Second
@@ -44,6 +45,7 @@ const (
 	MB = 1024 * KB
 )
 
+// NewHTTP -TODO-
 func NewHTTP(cfg HTTPConfig) (Relay, error) {
 	h := new(HTTP)
 
@@ -70,6 +72,7 @@ func NewHTTP(cfg HTTPConfig) (Relay, error) {
 	return h, nil
 }
 
+// Name -TODO-
 func (h *HTTP) Name() string {
 	if h.name == "" {
 		return fmt.Sprintf("%s://%s", h.schema, h.addr)
@@ -77,6 +80,7 @@ func (h *HTTP) Name() string {
 	return h.name
 }
 
+// Run -TODO-
 func (h *HTTP) Run() error {
 	l, err := net.Listen("tcp", h.addr)
 	if err != nil {
@@ -106,11 +110,13 @@ func (h *HTTP) Run() error {
 	return err
 }
 
+// Stop -TODO-
 func (h *HTTP) Stop() error {
 	atomic.StoreInt64(&h.closing, 1)
 	return h.l.Close()
 }
 
+// ServeHTTP -TODO-
 func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -361,13 +367,10 @@ func (b *simplePoster) post(buf []byte, query string, auth string) (*responseDat
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
-	}
-
-	if err = resp.Body.Close(); err != nil {
 		return nil, err
 	}
 
@@ -426,6 +429,7 @@ func newHTTPBackend(cfg *HTTPOutputConfig) (*httpBackend, error) {
 	}, nil
 }
 
+// ErrBufferFull -TODO-
 var ErrBufferFull = errors.New("retry buffer full")
 
 var bufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}

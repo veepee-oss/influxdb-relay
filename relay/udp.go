@@ -29,6 +29,7 @@ type UDP struct {
 	backends []*udpBackend
 }
 
+// NewUDP -TODO-
 func NewUDP(config UDPConfig) (Relay, error) {
 	u := new(UDP)
 
@@ -82,6 +83,7 @@ func NewUDP(config UDPConfig) (Relay, error) {
 	return u, nil
 }
 
+// Name -TODO-
 func (u *UDP) Name() string {
 	if u.name == "" {
 		return u.addr
@@ -110,6 +112,7 @@ type packet struct {
 	from      *net.UDPAddr
 }
 
+// Run -TODO-
 func (u *UDP) Run() error {
 
 	// buffer that can hold the largest possible UDP payload
@@ -154,6 +157,7 @@ func (u *UDP) Run() error {
 	}
 }
 
+// Stop -TODO-
 func (u *UDP) Stop() error {
 	atomic.StoreInt64(&u.closing, 1)
 	return u.l.Close()

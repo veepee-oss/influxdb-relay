@@ -1,0 +1,66 @@
+---
+# https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
+
+stages:
+  - commit
+  - test
+  - build
+
+# commit
+# git-history:
+#   stage: commit
+#   script:
+#     - >
+#       bash <(curl --fail --location --silent --show-error
+#       https://git.io/vxIxF)
+
+# lines-length:
+#   stage: commit
+#   script:
+#     - >
+#       bash <(curl --fail --location --silent --show-error
+#       https://git.io/vxIxN)
+
+# test
+dockerlint:
+  stage: test
+  image: vpgrp/linter:docker
+  allow_failure: true
+  script:
+    - find . -type f -name "Dockerfile" | xargs -I{} dockerlint {}
+
+golint:
+  stage: test
+  image: vpgrp/linter:golang
+  allow_failure: true
+  script:
+    - go get github.com/GeertJohan/fgt
+    - find . -type f -name "*\.go" | xargs -I{} fgt golint {}
+
+pylint:
+  stage: test
+  image: vpgrp/linter:python
+  allow_failure: true
+  script:
+    - find . -type f -name "*\.py" | xargs -I{} pylint {}
+
+# build
+docker:
+  stage: build
+  image: docker:latest
+  allow_failure: true
+  services:
+    - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay
+  script:
+    - docker build -f Dockerfile -t influxdb-relay-builder:latest .
+    - docker run -v $(pwd):/root/go/src/github.com/vente-privee/influxdb-relay influxdb-relay-builder
+
+go-get:
+  stage: build
+  image: vpgrp/golang:latest
+  allow_failure: true
+  script:
+    - go get -u github.com/vente-privee/influxdb-relay
+# EOF

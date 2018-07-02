@@ -1,4 +1,5 @@
 #!/usr/bin/python2.7 -u
+# pylint: disable=C0301
 
 import sys
 import os
@@ -34,12 +35,12 @@ CONFIGURATION_FILES = [
 ]
 
 PACKAGE_LICENSE = "MIT"
-PACKAGE_URL = "https://github.com/influxdata/influxdb-relay"
+PACKAGE_URL = "https://github.com/vente-privee/influxdb-relay"
 DESCRIPTION = "Service to replicate InfluxDB data for high availability."
 
-prereqs = [ 'git', 'go' ]
+prereqs = ['git', 'go']
 go_vet_command = "go tool vet -composites=true ./"
-optional_prereqs = [ 'fpm', 'rpmbuild' ]
+optional_prereqs = ['fpm', 'rpmbuild']
 
 fpm_common_args = "-f -s dir --log error \
 --url {} \
@@ -49,13 +50,13 @@ fpm_common_args = "-f -s dir --log error \
 --directories {} \
 --directories {} \
 --description \"{}\"".format(
-     PACKAGE_URL,
-     POSTINST_SCRIPT,
-     POSTUNINST_SCRIPT,
-     PACKAGE_LICENSE,
-     LOG_DIR,
-     DATA_DIR,
-     DESCRIPTION)
+    PACKAGE_URL,
+    POSTINST_SCRIPT,
+    POSTUNINST_SCRIPT,
+    PACKAGE_LICENSE,
+    LOG_DIR,
+    DATA_DIR,
+    DESCRIPTION)
 
 for f in CONFIGURATION_FILES:
     fpm_common_args += " --config-files {}".format(f)
@@ -65,22 +66,22 @@ targets = {
 }
 
 supported_builds = {
-    'darwin': [ "amd64" ],
-    'linux': [ "amd64", "static_amd64" ]
+    'darwin': ['amd64'],
+    'linux': ['amd64', 'static_amd64']
 }
 
 supported_packages = {
-    "darwin": [ "tar" ],
-    "linux": [ "deb", "rpm", "tar" ]
+    "darwin": ['tar'],
+    "linux": ['deb', 'rpm', 'tar']
 }
 
 def print_banner():
     logging.info(r"""
-  ___       __ _          ___  ___     ___     _           
- |_ _|_ _  / _| |_  ___ _|   \| _ )___| _ \___| |__ _ _  _ 
+  ___       __ _          ___  ___     ___     _
+ |_ _|_ _  / _| |_  ___ _|   \| _ )___| _ \___| |__ _ _  _
   | || ' \|  _| | || \ \ / |) | _ \___|   / -_) / _` | || |
  |___|_||_|_| |_|\_,_/_\_\___/|___/   |_|_\___|_\__,_|\_, |
-                                                      |__/ 
+                                                      |__/
   Build Script
 """)
 
@@ -90,12 +91,12 @@ def create_package_fs(build_root):
     logging.debug("Creating package filesystem at location: {}".format(build_root))
     # Using [1:] for the path names due to them being absolute
     # (will overwrite previous paths, per 'os.path.join' documentation)
-    dirs = [ INSTALL_ROOT_DIR[1:],
-             LOG_DIR[1:],
-             DATA_DIR[1:],
-             SCRIPT_DIR[1:],
-             CONFIG_DIR[1:],
-             LOGROTATE_DIR[1:] ]
+    dirs = [INSTALL_ROOT_DIR[1:],
+            LOG_DIR[1:],
+            DATA_DIR[1:],
+            SCRIPT_DIR[1:],
+            CONFIG_DIR[1:],
+            LOGROTATE_DIR[1:]]
     for d in dirs:
         os.makedirs(os.path.join(build_root, d))
         os.chmod(os.path.join(build_root, d), 0o755)
@@ -163,7 +164,7 @@ def run(command, allow_failure=False, shell=False):
     else:
         return out
 
-def create_temp_dir(prefix = None):
+def create_temp_dir(prefix=None):
     """ Create temporary directory with optional prefix.
     """
     if prefix is None:

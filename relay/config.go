@@ -6,11 +6,13 @@ import (
 	"github.com/naoina/toml"
 )
 
+// Config -TODO-
 type Config struct {
 	HTTPRelays []HTTPConfig `toml:"http"`
 	UDPRelays  []UDPConfig  `toml:"udp"`
 }
 
+// HTTPConfig -TODO-
 type HTTPConfig struct {
 	// Name identifies the HTTP relay
 	Name string `toml:"name"`
@@ -28,6 +30,7 @@ type HTTPConfig struct {
 	Outputs []HTTPOutputConfig `toml:"output"`
 }
 
+// HTTPOutputConfig -TODO-
 type HTTPOutputConfig struct {
 	// Name of the backend server
 	Name string `toml:"name"`
@@ -54,6 +57,7 @@ type HTTPOutputConfig struct {
 	SkipTLSVerification bool `toml:"skip-tls-verification"`
 }
 
+// UDPConfig -TODO-
 type UDPConfig struct {
 	// Name identifies the UDP relay
 	Name string `toml:"name"`
@@ -71,6 +75,7 @@ type UDPConfig struct {
 	Outputs []UDPOutputConfig `toml:"output"`
 }
 
+// UDPOutputConfig -TODO-
 type UDPOutputConfig struct {
 	// Name identifies the UDP backend
 	Name string `toml:"name"`

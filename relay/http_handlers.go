@@ -270,6 +270,7 @@ func (h *HTTP) handleStandard(w http.ResponseWriter, r *http.Request, start time
 	points, err := models.ParsePointsWithPrecision(bodyBuf.Bytes(), start, precision)
 	if err != nil {
 		putBuf(bodyBuf)
+		log.Printf("parse points error: %s", err)
 		jsonResponse(w, response{http.StatusBadRequest, "unable to parse points"})
 		return
 	}

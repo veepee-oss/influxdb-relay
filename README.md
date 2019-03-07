@@ -35,7 +35,7 @@ Other versions will probably work but are untested.
 
 ### Go
 
-Download the daemon into your `$GOPATH` and install it in `/sur/sbin`.
+Download the daemon into your `$GOPATH` and install it in `/usr/sbin`.
 
 ```sh
 go get -u github.com/vente-privee/influxdb-relay

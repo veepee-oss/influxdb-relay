@@ -23,7 +23,7 @@ type Operation func() error
 // There is no delay between attempts of different operations.
 type retryBuffer struct {
 	buffering int32
-	flushing int32
+	flushing  int32
 
 	initialInterval time.Duration
 	multiplier      time.Duration
@@ -82,6 +82,10 @@ func (r *retryBuffer) post(buf []byte, query string, auth string, endpoint strin
 	return &responseData{StatusCode: http.StatusAccepted}, err
 }
 
+func (r *retryBuffer) query(inq *ifxQuery, endpoint string) (*http.Response, error) {
+	return nil, nil
+}
+
 func (r *retryBuffer) run() {
 	buf := bytes.NewBuffer(make([]byte, 0, r.maxBatch))
 	for {
@@ -105,8 +109,8 @@ func (r *retryBuffer) run() {
 				break
 			}
 
-      resp, err := r.p.post(buf.Bytes(), batch.query, batch.auth, batch.endpoint)
-      if err == nil && resp.StatusCode/100 != 5 {
+			resp, err := r.p.post(buf.Bytes(), batch.query, batch.auth, batch.endpoint)
+			if err == nil && resp.StatusCode/100 != 5 {
 				batch.resp = resp
 				atomic.StoreInt32(&r.buffering, 0)
 				batch.wg.Done()

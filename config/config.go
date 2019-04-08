@@ -70,6 +70,8 @@ type HTTPConfig struct {
 	Outputs []HTTPOutputConfig `toml:"output"`
 
 	HealthTimeout int64 `toml:"health-timeout-ms"`
+
+	QueryRouterEndpointApi []string `toml:"query-router-endpoint-api"`
 }
 
 // HTTPOutputConfig represents the specification of an HTTP backend target
@@ -200,7 +202,7 @@ func LoadConfigFile(filename string) (Config, error) {
 	if err == nil {
 		for i, r := range cfg.HTTPRelays {
 			for j, b := range r.Outputs {
-				if b.Location[len(b.Location) - 1] == '/' {
+				if b.Location[len(b.Location)-1] == '/' {
 					cfg.HTTPRelays[i].Outputs[j].Endpoints = checkDoubleSlash(b.Endpoints)
 				}
 			}

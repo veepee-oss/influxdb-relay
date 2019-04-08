@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -47,6 +48,8 @@ type HTTP struct {
 	rateLimiter *rate.Limiter
 
 	healthTimeout time.Duration
+
+	queryRouterEndpointApi []string
 }
 
 type relayHandlerFunc func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time)
@@ -70,8 +73,9 @@ var (
 		"/ping":              (*HTTP).handlePing,
 		"/status":            (*HTTP).handleStatus,
 		"/admin":             (*HTTP).handleAdmin,
-		"/admin/flush":				(*HTTP).handleFlush,
+		"/admin/flush":       (*HTTP).handleFlush,
 		"/health":            (*HTTP).handleHealth,
+		"/query":             (*HTTP).handleQuery,
 	}
 
 	middlewares = []relayMiddleware{
@@ -92,6 +96,16 @@ func NewHTTP(cfg config.HTTPConfig, verbose bool, fs config.Filters) (Relay, err
 	h.name = cfg.Name
 	h.log = verbose
 	h.logger = log.New(os.Stdout, "relay: ", 0)
+
+	h.queryRouterEndpointApi = cfg.QueryRouterEndpointApi
+
+	//check url is ok //pending a first query
+	for _, r := range h.queryRouterEndpointApi {
+		_, err := url.ParseRequestURI(r)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	h.pingResponseCode = DefaultHTTPPingResponse
 	if cfg.DefaultPingResponse != 0 {
@@ -192,7 +206,6 @@ func (h *HTTP) Stop() error {
 // The response is a JSON object describing the state of the operation
 func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// h.start = time.Now()
-
 	if fun, ok := handlers[r.URL.Path]; ok {
 		allMiddlewares(h, fun)(h, w, r, time.Now())
 	} else {
@@ -236,8 +249,21 @@ func jsonResponse(w http.ResponseWriter, r response) {
 	_, _ = w.Write(data)
 }
 
+type ifxQuery struct {
+	db         string
+	epoch      string
+	q          string
+	u          string
+	p          string
+	pretty     string
+	chunked    string
+	chunksize  string
+	authHeader string
+}
+
 type poster interface {
 	post([]byte, string, string, string) (*responseData, error)
+	query(*ifxQuery, string) (*http.Response, error)
 	getStats() map[string]string
 }
 
@@ -302,6 +328,53 @@ func (s *simplePoster) post(buf []byte, query string, auth string, endpoint stri
 	}, nil
 }
 
+//acording to
+//  https://docs.influxdata.com/influxdb/v1.7/guides/querying_data/#querying-data-with-the-http-api
+
+func (s *simplePoster) query(inq *ifxQuery, endpoint string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", s.location+endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	if len(inq.db) > 0 {
+		q.Add("db", inq.db)
+	}
+	if len(inq.epoch) > 0 {
+		q.Add("epoch", inq.epoch)
+	}
+	if len(inq.q) > 0 {
+		q.Add("q", inq.q)
+	}
+	if len(inq.u) > 0 {
+		q.Add("u", inq.u)
+	}
+	if len(inq.p) > 0 {
+		q.Add("p", inq.p)
+	}
+	if len(inq.pretty) > 0 {
+		q.Add("pretty", inq.pretty)
+	}
+	if len(inq.chunked) > 0 {
+		q.Add("chunked", inq.chunked)
+	}
+
+	req.URL.RawQuery = q.Encode()
+
+	req.Header.Add("Accept", "application/json")
+	if len(inq.authHeader) > 0 {
+		req.Header.Set("Authorization", inq.authHeader)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 type httpBackend struct {
 	poster
 	name      string
@@ -317,37 +390,36 @@ type httpBackend struct {
 // validateRegexps checks if a request on this backend matches
 // all the tag regular expressions for this backend
 func (b *httpBackend) validateRegexps(ps models.Points) error {
-  // For each point
-  for _, p := range ps {
-    // Check if the measurement of each point
-    // matches ALL measurement regular expressions
-    m := p.Name()
-    for _, r := range b.measurementRegexps {
-      if !r.Match(m) {
-        return errors.New("bad measurement")
-      }
-    }
+	// For each point
+	for _, p := range ps {
+		// Check if the measurement of each point
+		// matches ALL measurement regular expressions
+		m := p.Name()
+		for _, r := range b.measurementRegexps {
+			if !r.Match(m) {
+				return errors.New("bad measurement")
+			}
+		}
 
-    // For each tag of each point
-    for _, t := range p.Tags() {
-      // Check if each tag of each point
-      // matches ALL tags regular expressions
-      for _, r := range b.tagRegexps {
-        if !r.Match(t.Key) {
-          return errors.New("bad tag")
-        }
-      }
-    }
-  }
+		// For each tag of each point
+		for _, t := range p.Tags() {
+			// Check if each tag of each point
+			// matches ALL tags regular expressions
+			for _, r := range b.tagRegexps {
+				if !r.Match(t.Key) {
+					return errors.New("bad tag")
+				}
+			}
+		}
+	}
 
-  return nil
+	return nil
 }
 
-func (b *httpBackend) getRetryBuffer() *retryBuffer	{
+func (b *httpBackend) getRetryBuffer() *retryBuffer {
 	if p, ok := b.poster.(*retryBuffer); ok {
 		return p
 	}
-
 	return nil
 }
 
@@ -413,8 +485,8 @@ func newHTTPBackend(cfg *config.HTTPOutputConfig, fs config.Filters) (*httpBacke
 		name:               cfg.Name,
 		tagRegexps:         tagRegexps,
 		measurementRegexps: measurementRegexps,
-		endpoints: cfg.Endpoints,
-		location:  cfg.Location,
+		endpoints:          cfg.Endpoints,
+		location:           cfg.Location,
 	}, nil
 }
 

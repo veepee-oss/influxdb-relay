@@ -18,7 +18,7 @@ func allMiddlewares(h *HTTP, handlerFunc relayHandlerFunc) relayHandlerFunc {
 func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time) {
 		if h.log {
-			h.logger.Println("got request on: " + r.URL.Path)
+			h.logger.Printf("got request on: %s  from :%s %s\n", r.URL.Path, r.RemoteAddr, r.Referer())
 		}
 		next(h, w, r, start)
 	})

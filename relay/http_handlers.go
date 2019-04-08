@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"sync"
@@ -203,12 +205,12 @@ func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request, _ time.Time) 
 		close(responses)
 	}()
 
-		var errResponse *responseData
-		for resp := range responses {
-			switch resp.StatusCode / 100 {
-			case 2:
-				w.WriteHeader(http.StatusNoContent)
-				return
+	var errResponse *responseData
+	for resp := range responses {
+		switch resp.StatusCode / 100 {
+		case 2:
+			w.WriteHeader(http.StatusNoContent)
+			return
 
 		case 4:
 			// User error
@@ -464,4 +466,137 @@ func (h *HTTP) handleProm(w http.ResponseWriter, r *http.Request, _ time.Time) {
 		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
 		return
 	}
+}
+
+func (h *HTTP) getValidQueryBackend() *httpBackend {
+	nEndp := len(h.queryRouterEndpointApi)
+	if nEndp == 0 {
+		return h.backends[0]
+	}
+	var responses = make(chan []string, nEndp)
+	var wg sync.WaitGroup
+	var validEndpoints = 0
+	wg.Add(nEndp)
+
+	for _, r := range h.queryRouterEndpointApi {
+
+		validEndpoints++
+
+		go func(r string) {
+			defer wg.Done()
+
+			client := http.Client{
+				Timeout: h.healthTimeout,
+			}
+			start := time.Now()
+			resp, err := client.Get(r)
+
+			if err != nil {
+				if h.log {
+					h.logger.Println(err)
+				}
+				return
+			}
+			defer resp.Body.Close()
+			var array []string
+			if resp.StatusCode == http.StatusOK {
+				bodyBytes, _ := ioutil.ReadAll(resp.Body)
+
+				err := json.Unmarshal(bodyBytes, &array)
+				if err != nil {
+					h.logger.Printf("Error  %#+v\n", bodyBytes, err)
+				}
+				responses <- array
+			}
+			duration := time.Since(start)
+			h.logger.Printf("Response %#+v | Duration  %s\n", array, duration.String())
+			return
+		}(r)
+	}
+
+	go func() {
+		wg.Wait()
+		close(responses)
+	}()
+
+	var allEndpoints []string
+
+	for r := range responses {
+		allEndpoints = append(allEndpoints, r...)
+	}
+
+	var rehttp *httpBackend
+
+	if len(allEndpoints) > 0 {
+		for _, b := range h.backends {
+			if b.name == allEndpoints[0] {
+				rehttp = b
+			}
+		}
+	}
+	if rehttp == nil {
+		rehttp = h.backends[0]
+	}
+	return rehttp
+}
+
+func (h *HTTP) handleQuery(w http.ResponseWriter, r *http.Request, start time.Time) {
+	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
+		//w.Header().Set("Allow", http.MethodPost)
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+		} else {
+			jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			return
+		}
+	}
+
+	queryParams := r.URL.Query()
+	bodyBuf := getBuf()
+	_, _ = bodyBuf.ReadFrom(r.Body)
+
+	inq := &ifxQuery{
+		db:         queryParams.Get("db"),
+		q:          queryParams.Get("q"),
+		epoch:      queryParams.Get("epoch"),
+		chunked:    queryParams.Get("chunked"),
+		authHeader: r.Header.Get("Authorization"),
+		u:          queryParams.Get("u"),
+		p:          queryParams.Get("p"),
+	}
+
+	b := h.getValidQueryBackend()
+
+	resp, err := b.query(inq, b.endpoints.Query)
+	if err != nil {
+		log.Printf("Problem posting to relay %q backend %q: %v", h.Name(), b.name, err)
+		if h.log {
+			h.logger.Printf("Content: %s", bodyBuf.String())
+		}
+	}
+
+	for name, values := range resp.Header {
+		w.Header()[name] = values
+	}
+	//log.Printf("%+v", resp)
+
+	w.WriteHeader(resp.StatusCode)
+
+	// body
+
+	io.Copy(w, resp.Body)
+
+	if h.log {
+		log.Printf("IN QUERY: [%s] DB [%s] Precision [%s] Chunked [%s|%s] user/pass (%s/%s) AuthHeader (%s) Response Time (%s)\n ",
+			inq.q,
+			inq.db,
+			inq.epoch,
+			inq.chunked,
+			inq.chunksize,
+			inq.u,
+			inq.p,
+			inq.authHeader,
+			time.Since(start))
+	}
+
 }

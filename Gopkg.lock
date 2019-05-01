@@ -58,7 +58,7 @@
 [[projects]]
   branch = "develop"
   digest = "1:11fb2387230d982210a8e548992e0425684b1e9dd75111df2342c05d5b87bc40"
-  name = "github.com/vente-privee/influxdb-relay"
+  name = "github.com/toni-moreno/influxdb-srelay"
   packages = [
     "config",
     "relay",
@@ -82,9 +82,9 @@
     "github.com/influxdata/influxdb/models",
     "github.com/naoina/toml",
     "github.com/stretchr/testify/assert",
-    "github.com/vente-privee/influxdb-relay/config",
-    "github.com/vente-privee/influxdb-relay/relay",
-    "github.com/vente-privee/influxdb-relay/relayservice",
+    "github.com/toni-moreno/influxdb-srelay/config",
+    "github.com/toni-moreno/influxdb-srelay/relay",
+    "github.com/toni-moreno/influxdb-srelay/relayservice",
     "golang.org/x/time/rate",
   ]
   solver-name = "gps-cdcl"

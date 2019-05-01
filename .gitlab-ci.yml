@@ -39,12 +39,12 @@ go-build:
   stage: build
   image: vpgrp/golang:latest
   before_script:
-    - mkdir -p ${GOPATH}/src/github.com/vente-privee
-    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/vente-privee/influxdb-relay
+    - mkdir -p ${GOPATH}/src/github.com/toni-moreno
+    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay
   script:
-    - cd ${GOPATH}/src/github.com/vente-privee/influxdb-relay
+    - cd ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay
     - go get
-    - go build -a -ldflags '-extldflags "-static"' -o influxdb-relay
+    - go build -a -ldflags '-extldflags "-static"' -o influxdb-srelay
 
 
 # tests
@@ -52,11 +52,11 @@ go-tests:
   stage: test
   image: vpgrp/golang
   before_script:
-    - mkdir -p ${GOPATH}/src/github.com/vente-privee
-    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/vente-privee/influxdb-relay
+    - mkdir -p ${GOPATH}/src/github.com/toni-moreno
+    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay
     - go get github.com/stretchr/testify/assert
   script:
-    - cd ${GOPATH}/src/github.com/vente-privee/influxdb-relay
+    - cd ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay
     - go get
     - go test ./...
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 ### BEGIN INIT INFO
-# Provides:          influxdb-relay
+# Provides:          influxdb-srelay
 # Required-Start:    $all
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -10,19 +10,19 @@
 
 # If you modify this, please make sure to also edit influxdb.service
 
-# Command-line options that can be set in /etc/default/influxdb-relay.
+# Command-line options that can be set in /etc/default/influxdb-srelay.
 # These will override any config file values.
-DEFAULT=/etc/default/influxdb-relay
+DEFAULT=/etc/default/influxdb-srelay
 
 # Daemon options
 DAEMON_OPTS=
 
 # Process name ( For display )
-NAME=influxdb-relay
+NAME=influxdb-srelay
 
 # User and group
-USER=influxdb-relay
-GROUP=influxdb-relay
+USER=influxdb-srelay
+GROUP=influxdb-srelay
 
 # Check for sudo or root privileges before continuing
 if [ "$UID" != "0" ]; then
@@ -32,17 +32,17 @@ fi
 
 # Daemon name, where is the actual executable If the daemon is not
 # there, then exit.
-DAEMON=/usr/bin/influxdb-relay
+DAEMON=/usr/bin/influxdb-srelay
 if [ ! -x $DAEMON ]; then
     echo "Executable $DAEMON does not exist!"
     exit 5
 fi
 
 # Configuration file
-CONFIG=/etc/influxdb-relay/influxdb-relay.conf
+CONFIG=/etc/influxdb-srelay/influxdb-srelay.conf
 
 # PID file for the daemon
-PIDFILE=/var/run/influxdb-relay/influxdb-relay.pid
+PIDFILE=/var/run/influxdb-srelay/influxdb-srelay.pid
 PIDDIR=`dirname $PIDFILE`
 if [ ! -d "$PIDDIR" ]; then
     mkdir -p $PIDDIR
@@ -58,7 +58,7 @@ fi
 
 # Logging
 if [ -z "$STDOUT" ]; then
-    STDOUT=/var/log/influxdb-relay/influxdb-relay.log
+    STDOUT=/var/log/influxdb-srelay/influxdb-srelay.log
 fi
 
 if [ ! -f "$STDOUT" ]; then
@@ -66,7 +66,7 @@ if [ ! -f "$STDOUT" ]; then
 fi
 
 if [ -z "$STDERR" ]; then
-    STDERR=/var/log/influxdb-relay/influxdb-relay.log
+    STDERR=/var/log/influxdb-srelay/influxdb-srelay.log
 fi
 
 if [ ! -f "$STDERR" ]; then

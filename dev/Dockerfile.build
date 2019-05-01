@@ -57,7 +57,7 @@ RUN curl \
 
 ENV PATH="${GOPATH}/bin:${PATH}:/usr/local/go/bin"
 
-WORKDIR /go/src/github.com/vente-privee/influxdb-relay
+WORKDIR /go/src/github.com/toni-moreno/influxdb-srelay
 
-ENTRYPOINT [ "/go/src/github.com/vente-privee/influxdb-relay/build.py" ]
+ENTRYPOINT [ "/go/src/github.com/toni-moreno/influxdb-srelay/build.py" ]
 # EOF

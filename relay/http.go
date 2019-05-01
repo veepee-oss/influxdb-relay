@@ -1,33 +1,27 @@
 package relay
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"golang.org/x/time/rate"
-	"io/ioutil"
-	"log"
+
+	"context"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/influxdata/influxdb/models"
-	"github.com/vente-privee/influxdb-relay/config"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
 // HTTP is a relay for HTTP influxdb writes
 type HTTP struct {
-	addr   string
-	name   string
+	cfg    *config.HTTPConfig
 	schema string
 
 	cert string
@@ -39,17 +33,22 @@ type HTTP struct {
 	closing int64
 	l       net.Listener
 
-	backends []*httpBackend
+	Endpoints []*HTTPEndPoint
 
-	start  time.Time
-	log    bool
-	logger *log.Logger
+	start time.Time
+	log   *zerolog.Logger
 
 	rateLimiter *rate.Limiter
+}
 
-	healthTimeout time.Duration
-
-	queryRouterEndpointApi []string
+// httpError writes an error to the client in a standard format.
+func (h *HTTP) httpError(w http.ResponseWriter, errmsg string, code int) {
+	// Default implementation if the response writer hasn't been replaced
+	// with our special response writer type.
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(code)
+	b, _ := json.Marshal(errmsg)
+	w.Write(b)
 }
 
 type relayHandlerFunc func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time)
@@ -68,14 +67,11 @@ const (
 
 var (
 	handlers = map[string]relayHandlerFunc{
-		"/write":             (*HTTP).handleStandard,
-		"/api/v1/prom/write": (*HTTP).handleProm,
-		"/ping":              (*HTTP).handlePing,
-		"/status":            (*HTTP).handleStatus,
-		"/admin":             (*HTTP).handleAdmin,
-		"/admin/flush":       (*HTTP).handleFlush,
-		"/health":            (*HTTP).handleHealth,
-		"/query":             (*HTTP).handleQuery,
+		"/ping":        (*HTTP).handlePing,
+		"/status":      (*HTTP).handleStatus,
+		"/admin":       (*HTTP).handleAdmin,
+		"/admin/flush": (*HTTP).handleFlush,
+		"/health":      (*HTTP).handleHealth,
 	}
 
 	middlewares = []relayMiddleware{
@@ -89,33 +85,37 @@ var (
 // NewHTTP creates a new HTTP relay
 // This relay will most likely be tied to a RelayService
 // and manage a set of HTTPBackends
-func NewHTTP(cfg config.HTTPConfig, verbose bool, fs config.Filters) (Relay, error) {
+func NewHTTP(cfg *config.HTTPConfig) (Relay, error) {
 	h := new(HTTP)
+	h.cfg = cfg
 
-	h.addr = cfg.Addr
-	h.name = cfg.Name
-	h.log = verbose
-	h.logger = log.New(os.Stdout, "relay: ", 0)
-
-	h.queryRouterEndpointApi = cfg.QueryRouterEndpointApi
-
-	//check url is ok //pending a first query
-	for _, r := range h.queryRouterEndpointApi {
-		_, err := url.ParseRequestURI(r)
-		if err != nil {
-			return nil, err
-		}
+	//Log output
+	var i *os.File
+	if len(cfg.LogFile) > 0 {
+		file, _ := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		i = file
+	} else {
+		i = os.Stderr
 	}
 
-	h.pingResponseCode = DefaultHTTPPingResponse
-	if cfg.DefaultPingResponse != 0 {
-		h.pingResponseCode = cfg.DefaultPingResponse
-	}
+	f := log.Output(zerolog.ConsoleWriter{Out: i})
+	h.log = &f
 
-	h.pingResponseHeaders = make(map[string]string)
-	h.pingResponseHeaders["X-InfluxDB-Version"] = "relay"
-	if h.pingResponseCode != http.StatusNoContent {
-		h.pingResponseHeaders["Content-Length"] = "0"
+	switch cfg.LogLevel {
+	case "panic":
+		h.log.WithLevel(zerolog.PanicLevel)
+	case "fatal":
+		h.log.WithLevel(zerolog.FatalLevel)
+	case "Error", "error":
+		h.log.WithLevel(zerolog.ErrorLevel)
+	case "warn", "warning":
+		h.log.WithLevel(zerolog.WarnLevel)
+	case "info":
+		h.log.WithLevel(zerolog.InfoLevel)
+	case "debug":
+		h.log.WithLevel(zerolog.DebugLevel)
+	default:
+		h.log.WithLevel(zerolog.InfoLevel)
 	}
 
 	h.cert = cfg.SSLCombinedPem
@@ -129,13 +129,19 @@ func NewHTTP(cfg config.HTTPConfig, verbose bool, fs config.Filters) (Relay, err
 	}
 
 	// For each output specified in the config, we are going to create a backend
-	for i := range cfg.Outputs {
-		backend, err := newHTTPBackend(&cfg.Outputs[i], fs)
+	for _, epc := range cfg.Endpoint {
+		h.log.Info().Msgf("Processing ENDPOINT %+v", epc)
+		ep, err := NewHTTPEndpoint(epc, h.log)
 		if err != nil {
+			h.log.Err(err)
 			return nil, err
 		}
 
-		h.backends = append(h.backends, backend)
+		h.Endpoints = append(h.Endpoints, ep)
+	}
+
+	for i, b := range h.Endpoints {
+		h.log.Info().Msgf("ENDPOINT [%d] | %+v", i, b)
 	}
 
 	// If a RateLimit is specified, create a new limiter
@@ -146,9 +152,6 @@ func NewHTTP(cfg config.HTTPConfig, verbose bool, fs config.Filters) (Relay, err
 			h.rateLimiter = rate.NewLimiter(rate.Limit(cfg.RateLimit), 1)
 		}
 	}
-
-	h.healthTimeout = time.Duration(cfg.HealthTimeout) * time.Millisecond
-
 	return h, nil
 }
 
@@ -156,17 +159,16 @@ func NewHTTP(cfg config.HTTPConfig, verbose bool, fs config.Filters) (Relay, err
 // a default name might be generated if it is
 // not specified in the configuration file
 func (h *HTTP) Name() string {
-	if h.name == "" {
-		return fmt.Sprintf("%s://%s", h.schema, h.addr)
+	if h.cfg.Name == "" {
+		return fmt.Sprintf("%s://%s", h.schema, h.cfg.BindAddr)
 	}
-
-	return h.name
+	return h.cfg.Name
 }
 
 // Run actually launch the HTTP endpoint
 func (h *HTTP) Run() error {
 	var cert tls.Certificate
-	l, err := net.Listen("tcp", h.addr)
+	l, err := net.Listen("tcp", h.cfg.BindAddr)
 	if err != nil {
 		return err
 	}
@@ -185,9 +187,7 @@ func (h *HTTP) Run() error {
 
 	h.l = l
 
-	if h.log {
-		h.logger.Printf("starting %s relay %q on %v", strings.ToUpper(h.schema), h.Name(), h.addr)
-	}
+	h.log.Printf("starting %s relay %q on %v", strings.ToUpper(h.schema), h.Name(), h.cfg.BindAddr)
 
 	err = http.Serve(l, h)
 	if atomic.LoadInt64(&h.closing) != 0 {
@@ -202,307 +202,73 @@ func (h *HTTP) Stop() error {
 	return h.l.Close()
 }
 
+func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := r.Context().Value("clusterid")
+	if c, ok := clusters[clusterid.(string)]; ok {
+		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid.(string))
+		c.HandlePing(w, r, start)
+		return
+	}
+	h.log.Error().Msgf("Handle Ping for cluster Error cluster %s not exist", clusterid.(string))
+}
+
+func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := r.Context().Value("clusterid")
+	if c, ok := clusters[clusterid.(string)]; ok {
+		h.log.Info().Msgf("Handle Status for cluster %s", clusterid.(string))
+		c.HandleStatus(w, r, start)
+		return
+	}
+	h.log.Error().Msgf("Handle Status for cluster Error cluster %s not exist", clusterid.(string))
+}
+
+func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := r.Context().Value("clusterid")
+	if c, ok := clusters[clusterid.(string)]; ok {
+		h.log.Info().Msgf("Handle Health for cluster %s", clusterid.(string))
+		c.HandleHealth(w, r, start)
+		return
+	}
+	h.log.Error().Msgf("Handle Health for cluster Error cluster %s not exist", clusterid.(string))
+}
+
+func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := r.Context().Value("clusterid")
+	if c, ok := clusters[clusterid.(string)]; ok {
+		h.log.Info().Msgf("Handle flush for cluster %s", clusterid.(string))
+		c.HandleFlush(w, r, start)
+		return
+	}
+	h.log.Error().Msgf("Handle Flush for cluster Error cluster %s not exist", clusterid.(string))
+}
+
+func (h *HTTP) processEndpoint(w http.ResponseWriter, r *http.Request, start time.Time) {
+	// Begin process for
+	for i, endpoint := range h.Endpoints {
+		h.log.Info().Msgf("Procesing [%d][%s] endpoint %+v", i, endpoint.cfg.Type, endpoint.cfg.URI)
+		processed := endpoint.ProcessInput(w, r, start)
+		if processed {
+			break
+		}
+	}
+}
+
+var ProcessEndpoint relayHandlerFunc = (*HTTP).processEndpoint
+
 // ServeHTTP is the function that handles the different route
 // The response is a JSON object describing the state of the operation
 func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// h.start = time.Now()
-	if fun, ok := handlers[r.URL.Path]; ok {
-		allMiddlewares(h, fun)(h, w, r, time.Now())
-	} else {
-		jsonResponse(w, response{http.StatusNotFound, http.StatusText(http.StatusNotFound)})
-		return
-	}
-}
+	h.log.Debug().Msgf("IN REQUEST:%+v", r)
 
-type responseData struct {
-	ContentType     string
-	ContentEncoding string
-	StatusCode      int
-	Body            []byte
-}
-
-func (rd *responseData) Write(w http.ResponseWriter) {
-	if rd.ContentType != "" {
-		w.Header().Set("Content-Type", rd.ContentType)
-	}
-
-	if rd.ContentEncoding != "" {
-		w.Header().Set("Content-Encoding", rd.ContentEncoding)
-	}
-
-	w.Header().Set("Content-Length", strconv.Itoa(len(rd.Body)))
-	w.WriteHeader(rd.StatusCode)
-	w.Write(rd.Body)
-}
-
-func jsonResponse(w http.ResponseWriter, r response) {
-	data, err := json.Marshal(r.body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
-	w.WriteHeader(r.code)
-
-	_, _ = w.Write(data)
-}
-
-type ifxQuery struct {
-	db         string
-	epoch      string
-	q          string
-	u          string
-	p          string
-	pretty     string
-	chunked    string
-	chunksize  string
-	authHeader string
-}
-
-type poster interface {
-	post([]byte, string, string, string) (*responseData, error)
-	query(*ifxQuery, string) (*http.Response, error)
-	getStats() map[string]string
-}
-
-type simplePoster struct {
-	client   *http.Client
-	location string
-}
-
-func newSimplePoster(location string, timeout time.Duration, skipTLSVerification bool) *simplePoster {
-	// Configure custom transport for http.Client
-	// Used for support skip-tls-verification option
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: skipTLSVerification,
-		},
-	}
-
-	return &simplePoster{
-		client: &http.Client{
-			Timeout:   timeout,
-			Transport: transport,
-		},
-		location: location,
-	}
-}
-
-func (s *simplePoster) getStats() map[string]string {
-	v := make(map[string]string)
-	v["location"] = s.location
-	return v
-}
-
-func (s *simplePoster) post(buf []byte, query string, auth string, endpoint string) (*responseData, error) {
-	req, err := http.NewRequest("POST", s.location+endpoint, bytes.NewReader(buf))
-	if err != nil {
-		return nil, err
-	}
-
-	req.URL.RawQuery = query
-	req.Header.Set("Content-Type", "text/plain")
-	req.Header.Set("Content-Length", strconv.Itoa(len(buf)))
-	if auth != "" {
-		req.Header.Set("Authorization", auth)
-	}
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return &responseData{
-		ContentType:     resp.Header.Get("Content-Type"),
-		ContentEncoding: resp.Header.Get("Content-Encoding"),
-		StatusCode:      resp.StatusCode,
-		Body:            data,
-	}, nil
-}
-
-//acording to
-//  https://docs.influxdata.com/influxdb/v1.7/guides/querying_data/#querying-data-with-the-http-api
-
-func (s *simplePoster) query(inq *ifxQuery, endpoint string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", s.location+endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	q := req.URL.Query()
-	if len(inq.db) > 0 {
-		q.Add("db", inq.db)
-	}
-	if len(inq.epoch) > 0 {
-		q.Add("epoch", inq.epoch)
-	}
-	if len(inq.q) > 0 {
-		q.Add("q", inq.q)
-	}
-	if len(inq.u) > 0 {
-		q.Add("u", inq.u)
-	}
-	if len(inq.p) > 0 {
-		q.Add("p", inq.p)
-	}
-	if len(inq.pretty) > 0 {
-		q.Add("pretty", inq.pretty)
-	}
-	if len(inq.chunked) > 0 {
-		q.Add("chunked", inq.chunked)
-	}
-
-	req.URL.RawQuery = q.Encode()
-
-	req.Header.Add("Accept", "application/json")
-	if len(inq.authHeader) > 0 {
-		req.Header.Set("Authorization", inq.authHeader)
-	}
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-type httpBackend struct {
-	poster
-	name      string
-	inputType config.Input
-	admin     string
-	endpoints config.HTTPEndpointConfig
-	location  string
-
-	tagRegexps         []*regexp.Regexp
-	measurementRegexps []*regexp.Regexp
-}
-
-// validateRegexps checks if a request on this backend matches
-// all the tag regular expressions for this backend
-func (b *httpBackend) validateRegexps(ps models.Points) error {
-	// For each point
-	for _, p := range ps {
-		// Check if the measurement of each point
-		// matches ALL measurement regular expressions
-		m := p.Name()
-		for _, r := range b.measurementRegexps {
-			if !r.Match(m) {
-				return errors.New("bad measurement")
-			}
+	for url, fun := range handlers {
+		if strings.HasPrefix(r.URL.Path, url) {
+			clusterid := strings.TrimPrefix(r.URL.Path, url+"/")
+			ctx := context.WithValue(r.Context(), "clusterid", clusterid)
+			allMiddlewares(h, fun)(h, w, r.WithContext(ctx), time.Now())
+			return
 		}
 
-		// For each tag of each point
-		for _, t := range p.Tags() {
-			// Check if each tag of each point
-			// matches ALL tags regular expressions
-			for _, r := range b.tagRegexps {
-				if !r.Match(t.Key) {
-					return errors.New("bad tag")
-				}
-			}
-		}
 	}
-
-	return nil
-}
-
-func (b *httpBackend) getRetryBuffer() *retryBuffer {
-	if p, ok := b.poster.(*retryBuffer); ok {
-		return p
-	}
-	return nil
-}
-
-func newHTTPBackend(cfg *config.HTTPOutputConfig, fs config.Filters) (*httpBackend, error) {
-	// Get default name
-	if cfg.Name == "" {
-		cfg.Name = cfg.Location
-	}
-
-	// Set a timeout
-	timeout := DefaultHTTPTimeout
-	if cfg.Timeout != "" {
-		t, err := time.ParseDuration(cfg.Timeout)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing HTTP timeout '%v'", err)
-		}
-		timeout = t
-	}
-
-	// Get underlying Poster instance
-	var p poster = newSimplePoster(cfg.Location, timeout, cfg.SkipTLSVerification)
-
-	// If configured, create a retryBuffer per backend.
-	// This way we serialize retries against each backend.
-	if cfg.BufferSizeMB > 0 {
-		max := DefaultMaxDelayInterval
-		if cfg.MaxDelayInterval != "" {
-			m, err := time.ParseDuration(cfg.MaxDelayInterval)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing max retry time %v", err)
-			}
-			max = m
-		}
-
-		batch := DefaultBatchSizeKB * KB
-		if cfg.MaxBatchKB > 0 {
-			batch = cfg.MaxBatchKB * KB
-		}
-
-		p = newRetryBuffer(cfg.BufferSizeMB*MB, batch, max, p)
-	}
-
-	var tagRegexps []*regexp.Regexp
-	var measurementRegexps []*regexp.Regexp
-
-	// Get regexps related to this HTTP backend
-	for _, f := range fs {
-		for _, e := range f.Outputs {
-			if e == cfg.Name {
-				if f.TagRegexp != nil {
-					tagRegexps = append(tagRegexps, f.TagRegexp)
-				}
-
-				if f.MeasurementRegexp != nil {
-					measurementRegexps = append(measurementRegexps, f.MeasurementRegexp)
-				}
-			}
-		}
-	}
-
-	return &httpBackend{
-		poster:             p,
-		name:               cfg.Name,
-		tagRegexps:         tagRegexps,
-		measurementRegexps: measurementRegexps,
-		endpoints:          cfg.Endpoints,
-		location:           cfg.Location,
-	}, nil
-}
-
-// ErrBufferFull error indicates that retry buffer is full
-var ErrBufferFull = errors.New("retry buffer full")
-
-var bufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
-
-func getBuf() *bytes.Buffer {
-	if bb, ok := bufPool.Get().(*bytes.Buffer); ok {
-		return bb
-	}
-	return new(bytes.Buffer)
-}
-
-func putBuf(b *bytes.Buffer) {
-	b.Reset()
-	bufPool.Put(b)
+	allMiddlewares(h, ProcessEndpoint)(h, w, r, time.Now())
 }

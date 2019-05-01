@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/vente-privee/influxdb-relay/config"
-	"github.com/vente-privee/influxdb-relay/relayservice"
+	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/relayservice"
 )
 
 const (
@@ -49,7 +49,7 @@ func main() {
 	flag.Parse()
 
 	if *versionFlag {
-		fmt.Println("influxdb-relay version " + relayVersion)
+		fmt.Println("influxdb-srelay version " + relayVersion)
 		return
 	}
 
@@ -66,7 +66,5 @@ func main() {
 		log.Println("Version: " + relayVersion)
 		log.Fatal(err.Error())
 	}
-
-	cfg.Verbose = *verbose
 	runRelay(cfg)
 }

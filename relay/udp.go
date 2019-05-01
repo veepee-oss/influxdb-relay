@@ -1,5 +1,8 @@
 package relay
 
+// PENDING DEFINE UDP CONFIG FORMAT
+/*
+
 import (
 	"bytes"
 	"errors"
@@ -11,7 +14,7 @@ import (
 
 	"github.com/influxdata/influxdb/models"
 
-	"github.com/vente-privee/influxdb-relay/config"
+	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
 const (
@@ -228,3 +231,4 @@ func (b *udpBackend) post(data []byte) error {
 	_, err = b.u.c.WriteToUDP(data, b.addr)
 	return err
 }
+*/

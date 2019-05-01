@@ -1,5 +1,5 @@
 Jun 28 2018 Antoine MILLET <amillet@vente-privee.com>
-	From https://github.com/influxdata/influxdb-relay
+	From https://github.com/influxdata/influxdb-srelay
 
 Jun 29 2018 Alexandre BESLIC <abeslic@abronan.com>
 	* Switch to dep, make the project buildable after go get
@@ -12,11 +12,11 @@ Jun 30 2018 Antoine MILLET <amillet@vente-privee.com>
 	* Add basic tests with golint & pylint
 	* Add CHANGELOG
 	* Add CONTRIBUTING guide
-	* Merge https://github.com/influxdata/influxdb-relay/pull/65
-	* Merge https://github.com/influxdata/influxdb-relay/pull/52
-	* Merge https://github.com/influxdata/influxdb-relay/pull/59
-	* Merge https://github.com/influxdata/influxdb-relay/pull/43
-	* Merge https://github.com/influxdata/influxdb-relay/pull/57
+	* Merge https://github.com/influxdata/influxdb-srelay/pull/65
+	* Merge https://github.com/influxdata/influxdb-srelay/pull/52
+	* Merge https://github.com/influxdata/influxdb-srelay/pull/59
+	* Merge https://github.com/influxdata/influxdb-srelay/pull/43
+	* Merge https://github.com/influxdata/influxdb-srelay/pull/57
 
 Nov 15 2018 Maxime CORBIN <mcorbin@vente-privee.com>
     * Add Prometheus input support
@@ -39,3 +39,11 @@ Dec 27 2018 Clément CORNUT <ccornut@vente-privee.com>
     * Add Filters for tags and measurements
     * New configuration formatting
     * Various bug fixes
+Apr 8 2019 Toni Moreno <toni.moreno@gmail.com>
+    * added influx IQL query support, and query-router-endpoint-api parameter to get a list of available influx ID's to send /query quieries"
+Apr 25 2019 Toni Moreno <toni.moreno@gmail.com>
+    * From https://github.com/vente-privee/influxdb-srelay
+    * Renamed to influxdb-srelay ( Smart Relay) 
+    * Refactor to new config type
+
+	

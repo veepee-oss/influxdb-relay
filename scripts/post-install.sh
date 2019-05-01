@@ -1,40 +1,40 @@
 #!/bin/bash
 
 BIN_DIR=/usr/bin
-DATA_DIR=/var/lib/influxdb-relay
-LOG_DIR=/var/log/influxdb-relay
-SCRIPT_DIR=/usr/lib/influxdb-relay/scripts
+DATA_DIR=/var/lib/influxdb-srelay
+LOG_DIR=/var/log/influxdb-srelay
+SCRIPT_DIR=/usr/lib/influxdb-srelay/scripts
 LOGROTATE_DIR=/etc/logrotate.d
 
 function install_init {
-    cp -f $SCRIPT_DIR/init.sh /etc/init.d/influxdb-relay
-    chmod +x /etc/init.d/influxdb-relay
+    cp -f $SCRIPT_DIR/init.sh /etc/init.d/influxdb-srelay
+    chmod +x /etc/init.d/influxdb-srelay
 }
 
 function install_systemd {
-    cp -f $SCRIPT_DIR/influxdb-relay.service /lib/systemd/system/influxdb-relay.service
-    systemctl enable influxdb-relay
+    cp -f $SCRIPT_DIR/influxdb-srelay.service /lib/systemd/system/influxdb-srelay.service
+    systemctl enable influxdb-srelay
 }
 
 function install_update_rcd {
-    update-rc.d influxdb-relay defaults
+    update-rc.d influxdb-srelay defaults
 }
 
 function install_chkconfig {
-    chkconfig --add influxdb-relay
+    chkconfig --add influxdb-srelay
 }
 
-id influxdb-relay &>/dev/null
+id influxdb-srelay &>/dev/null
 if [[ $? -ne 0 ]]; then
-    useradd --system -U -M influxdb-relay -s /bin/false -d $DATA_DIR
+    useradd --system -U -M influxdb-srelay -s /bin/false -d $DATA_DIR
 fi
 
-chown -R -L influxdb-relay:influxdb-relay $DATA_DIR
-chown -R -L influxdb-relay:influxdb-relay $LOG_DIR
+chown -R -L influxdb-srelay:influxdb-srelay $DATA_DIR
+chown -R -L influxdb-srelay:influxdb-srelay $LOG_DIR
 
 # Remove legacy symlink, if it exists
-if [[ -L /etc/init.d/influxdb-relay ]]; then
-    rm -f /etc/init.d/influxdb-relay
+if [[ -L /etc/init.d/influxdb-srelay ]]; then
+    rm -f /etc/init.d/influxdb-srelay
 fi
 
 # Distribution-specific logic

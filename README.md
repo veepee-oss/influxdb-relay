@@ -1,4 +1,4 @@
-# influxdb-relay
+# influxdb-srelay
 
 [![License][license-img]][license-href]
 
@@ -13,7 +13,7 @@
 
 ## Overview
 
-Maintained fork of [influxdb-relay][overview-href] originally developed by
+Maintained fork of [influxdb-srelay][overview-href] originally developed by
 InfluxData. Replicate InfluxDB data for high availability.
 
 **Be careful, we have deeply changed the configuration file syntax.**
@@ -38,17 +38,17 @@ Other versions will probably work but are untested.
 Download the daemon into your `$GOPATH` and install it in `/usr/sbin`.
 
 ```sh
-go get -u github.com/vente-privee/influxdb-relay
-cp ${GOPATH}/bin/influxdb-relay /usr/bin/influxdb-relay
-chmod 755 /usr/bin/influxdb-relay
+go get -u github.com/toni-moreno/influxdb-srelay
+cp ${GOPATH}/bin/influxdb-srelay /usr/bin/influxdb-srelay
+chmod 755 /usr/bin/influxdb-srelay
 ```
 
-Create the configuration file in `/etc/influxdb-relay`.
+Create the configuration file in `/etc/influxdb-srelay`.
 
 ```sh
-mkdir -p /etc/influxdb-relay
-cp ${GOPATH}/src/github.com/vente-privee/influxdb-relay/examples/sample.conf \
-   /etc/influxdb-relay/influxdb-relay.conf
+mkdir -p /etc/influxdb-srelay
+cp ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay/examples/sample.conf \
+   /etc/influxdb-srelay/influxdb-srelay.conf
 ```
 
 ### Docker
@@ -56,17 +56,17 @@ cp ${GOPATH}/src/github.com/vente-privee/influxdb-relay/examples/sample.conf \
 Build your own image.
 
 ```sh
-git clone git@github.com:vente-privee/influxdb-relay
-cd influxdb-relay
+git clone git@github.com:toni-moreno/influxdb-srelay
+cd influxdb-srelay
 docker build \
        --file Dockerfile \
        --rm \
-       --tag influxdb-relay:latest \
+       --tag influxdb-srelay:latest \
        .
 docker run \
-       --volume /path/to/influxdb-relay.conf:/etc/influxdb-relay/influxdb-relay.conf
+       --volume /path/to/influxdb-srelay.conf:/etc/influxdb-srelay/influxdb-srelay.conf
        --rm
-       influxdb-relay:latest
+       influxdb-srelay:latest
 ```
 
 or
@@ -74,11 +74,11 @@ or
 Docker pull our image.
 
 ```sh
-docker pull vptech/influxdb-relay:latest
+docker pull vptech/influxdb-srelay:latest
 docker run \
-       --volume /path/to/influxdb-relay.conf:/etc/influxdb-relay/influxdb-relay.conf
+       --volume /path/to/influxdb-srelay.conf:/etc/influxdb-srelay/influxdb-srelay.conf
        --rm
-       vptech/influxdb-relay:latest
+       vptech/influxdb-srelay:latest
 ```
 
 ## Usage
@@ -120,7 +120,7 @@ burst-limit = 10
 default-ping-response = 200
 
 # Enable HTTPS requests.
-ssl-combined-pem = "/path/to/influxdb-relay.pem"
+ssl-combined-pem = "/path/to/influxdb-srelay.pem"
 
 # InfluxDB instances to use as backend for Relay
 [[http.output]]
@@ -260,16 +260,16 @@ request.
 Clone repository into your `$GOPATH`.
 
 ```sh
-mkdir -p ${GOPATH}/src/github.com/vente-privee
-cd ${GOPATH}/src/github.com/vente-privee
-git clone git@github.com:vente-privee/influxdb-relay
+mkdir -p ${GOPATH}/src/github.com/toni-moreno
+cd ${GOPATH}/src/github.com/toni-moreno
+git clone git@github.com:toni-moreno/influxdb-srelay
 ```
 
 Enter the directory and build the daemon.
 
 ```sh
-cd ${GOPATH}/src/github.com/vente-privee/influxdb-relay
-go build -a -ldflags '-extldflags "-static"' -o influxdb-relay
+cd ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay
+go build -a -ldflags '-extldflags "-static"' -o influxdb-srelay
 ```
 
 ## Miscellaneous
@@ -286,5 +286,5 @@ go build -a -ldflags '-extldflags "-static"' -o influxdb-relay
 
 [license-img]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-href]: LICENSE
-[overview-href]: https://github.com/influxdata/influxdb-relay
+[overview-href]: https://github.com/influxdata/influxdb-srelay
 [contribute-href]: CONTRIBUTING.md

@@ -1,18 +1,18 @@
 #!/bin/bash
 
 function disable_systemd {
-    systemctl disable influxdb-relay
-    rm -f /lib/systemd/system/influxdb-relay.service
+    systemctl disable influxdb-srelay
+    rm -f /lib/systemd/system/influxdb-srelay.service
 }
 
 function disable_update_rcd {
-    update-rc.d -f influxdb-relay remove
-    rm -f /etc/init.d/influxdb-relay
+    update-rc.d -f influxdb-srelay remove
+    rm -f /etc/init.d/influxdb-srelay
 }
 
 function disable_chkconfig {
-    chkconfig --del influxdb-relay
-    rm -f /etc/init.d/influxdb-relay
+    chkconfig --del influxdb-srelay
+    rm -f /etc/init.d/influxdb-srelay
 }
 
 if [[ -f /etc/redhat-release ]]; then

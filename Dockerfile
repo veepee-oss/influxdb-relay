@@ -30,17 +30,17 @@ RUN apk update && \
     apk add git
 
 # Install
-RUN go get -u github.com/vente-privee/influxdb-relay && \
-    mv /go/bin/influxdb-relay /usr/bin/influxdb-relay && \
-    chmod 755 /usr/bin/influxdb-relay && \
-    mkdir /etc/influxdb-relay && \
-    touch /etc/influxdb-relay/influxdb-relay.conf
+RUN go get -u github.com/toni-moreno/influxdb-srelay && \
+    mv /go/bin/influxdb-srelay /usr/bin/influxdb-srelay && \
+    chmod 755 /usr/bin/influxdb-srelay && \
+    mkdir /etc/influxdb-srelay && \
+    touch /etc/influxdb-srelay/influxdb-srelay.conf
 
 # Clean
 RUN rm -fr /go/src/github.com && \
     apk del git
 
-ENTRYPOINT [ "/usr/bin/influxdb-relay" ]
+ENTRYPOINT [ "/usr/bin/influxdb-srelay" ]
 
-CMD [ "-config", "/etc/influxdb-relay/influxdb-relay.conf" ]
+CMD [ "-config", "/etc/influxdb-srelay/influxdb-srelay.conf" ]
 # EOF

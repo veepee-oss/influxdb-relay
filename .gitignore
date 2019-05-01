@@ -2,7 +2,7 @@
 *.swp
 build
 build/*
-influxdb-relay
+influxdb-srelay
 pkg
 pkg/*
 .vscode/

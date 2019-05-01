@@ -1,4 +1,4 @@
-/var/log/influxdb-relay/influxdb-relay.log {
+/var/log/influxdb-srelay/influxdb-srelay.log {
     daily
     rotate 7
     missingok

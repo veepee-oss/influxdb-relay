@@ -6,13 +6,13 @@ To build system packages for Linux (`deb`, `rpm`, etc), use the included
 ```sh
 $ # Get all the code and dependencies into a temporary $GOPATH
 $ export GOPATH=/tmp/go
-$ go get -d -u github.com/vente-privee/influxdb-relay
-$ cd $GOPATH/src/github.com/vente-privee/influxdb-relay
+$ go get -d -u github.com/toni-moreno/influxdb-srelay
+$ cd $GOPATH/src/github.com/toni-moreno/influxdb-srelay
 $ scripts/build.py
 ```
 
 The packages will be found under
-`$GOPATH/src/github.com/vente-privee/influxdb-relay/build`
+`$GOPATH/src/github.com/toni-moreno/influxdb-srelay/build`
 
 For more build options, check the build script arguments:
 ```sh

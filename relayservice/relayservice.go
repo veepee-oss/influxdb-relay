@@ -5,8 +5,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/vente-privee/influxdb-relay/config"
-	"github.com/vente-privee/influxdb-relay/relay"
+	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/relay"
 )
 
 // Service is a map of relays
@@ -16,11 +16,16 @@ type Service struct {
 
 // New loads the different relays from the configuration file
 func New(config config.Config) (*Service, error) {
+	relay.SetConfig(config)
+	err := relay.InitClusters()
+	if err != nil {
+		return nil, fmt.Errorf("Error on create Clusters: %s", err)
+	}
 	s := new(Service)
 	s.relays = make(map[string]relay.Relay)
 
-	for _, cfg := range config.HTTPRelays {
-		h, err := relay.NewHTTP(cfg, config.Verbose, config.Filters)
+	for _, cfg := range config.HTTPConfig {
+		h, err := relay.NewHTTP(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -30,16 +35,17 @@ func New(config config.Config) (*Service, error) {
 		s.relays[h.Name()] = h
 	}
 
-	for _, cfg := range config.UDPRelays {
-		u, err := relay.NewUDP(cfg)
-		if err != nil {
-			return nil, err
-		}
-		if s.relays[u.Name()] != nil {
-			return nil, fmt.Errorf("duplicate relay: %q", u.Name())
-		}
-		s.relays[u.Name()] = u
-	}
+	/*
+		for _, cfg := range config.UDPRelays {
+			u, err := relay.NewUDP(cfg)
+			if err != nil {
+				return nil, err
+			}
+			if s.relays[u.Name()] != nil {
+				return nil, fmt.Errorf("duplicate relay: %q", u.Name())
+			}
+			s.relays[u.Name()] = u
+		}*/
 
 	return s, nil
 }

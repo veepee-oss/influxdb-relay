@@ -14,28 +14,28 @@ import logging
 import argparse
 
 # Packaging variables
-PACKAGE_NAME = "influxdb-relay"
+PACKAGE_NAME = "influxdb-srelay"
 INSTALL_ROOT_DIR = "/usr/bin"
-LOG_DIR = "/var/log/influxdb-relay"
-DATA_DIR = "/var/lib/influxdb-relay"
-SCRIPT_DIR = "/usr/lib/influxdb-relay/scripts"
-CONFIG_DIR = "/etc/influxdb-relay"
+LOG_DIR = "/var/log/influxdb-srelay"
+DATA_DIR = "/var/lib/influxdb-srelay"
+SCRIPT_DIR = "/usr/lib/influxdb-srelay/scripts"
+CONFIG_DIR = "/etc/influxdb-srelay"
 LOGROTATE_DIR = "/etc/logrotate.d"
 
 INIT_SCRIPT = "scripts/init.sh"
-SYSTEMD_SCRIPT = "scripts/influxdb-relay.service"
+SYSTEMD_SCRIPT = "scripts/influxdb-srelay.service"
 POSTINST_SCRIPT = "scripts/post-install.sh"
 POSTUNINST_SCRIPT = "scripts/post-uninstall.sh"
 LOGROTATE_SCRIPT = "scripts/logrotate"
 DEFAULT_CONFIG = "examples/sample.conf"
 
 CONFIGURATION_FILES = [
-    CONFIG_DIR + '/influxdb-relay.conf',
-    LOGROTATE_DIR + '/influxdb-relay',
+    CONFIG_DIR + '/influxdb-srelay.conf',
+    LOGROTATE_DIR + '/influxdb-srelay',
 ]
 
 PACKAGE_LICENSE = "MIT"
-PACKAGE_URL = "https://github.com/vente-privee/influxdb-relay"
+PACKAGE_URL = "https://github.com/toni-moreno/influxdb-srelay"
 DESCRIPTION = "Service to replicate InfluxDB data for high availability."
 
 prereqs = ['git', 'go']
@@ -62,7 +62,7 @@ for f in CONFIGURATION_FILES:
     fpm_common_args += " --config-files {}".format(f)
 
 targets = {
-    'influxdb-relay' : './main.go'
+    'influxdb-srelay' : './main.go'
 }
 
 supported_builds = {
@@ -76,12 +76,21 @@ supported_packages = {
 }
 
 def print_banner():
+    # http://patorjk.com/software/taag
     logging.info(r"""
-  ___       __ _          ___  ___     ___     _
- |_ _|_ _  / _| |_  ___ _|   \| _ )___| _ \___| |__ _ _  _
-  | || ' \|  _| | || \ \ / |) | _ \___|   / -_) / _` | || |
- |___|_||_|_| |_|\_,_/_\_\___/|___/   |_|_\___|_\__,_|\_, |
-                                                      |__/
+  _____        __ _            _____  ____                        
+ |_   _|      / _| |          |  __ \|  _ \                       
+   | |  _ __ | |_| |_   ___  _| |  | | |_) |                      
+   | | | '_ \|  _| | | | \ \/ / |  | |  _ <                       
+  _| |_| | | | | | | |_| |>  <| |__| | |_) |                      
+ |_____|_| |_|_| |_|\__,_/_/\_\_____/|____/___      _             
+  / ____|                    | |        |  __ \    | |            
+ | (___  _ __ ___   __ _ _ __| |_ ______| |__) |___| | __ _ _   _ 
+  \___ \| '_ ` _ \ / _` | '__| __|______|  _  // _ \ |/ _` | | | |
+  ____) | | | | | | (_| | |  | |_       | | \ \  __/ | (_| | |_| |
+ |_____/|_| |_| |_|\__,_|_|   \__|      |_|  \_\___|_|\__,_|\__, |
+                                                             __/ |
+                                                            |___/
   Build Script
 """)
 
@@ -107,18 +116,18 @@ def package_scripts(build_root, config_only=False):
     """
     if config_only:
         logging.debug("Copying configuration to build directory.")
-        shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, "influxdb-relay.conf"))
-        os.chmod(os.path.join(build_root, "influxdb-relay.conf"), 0o644)
+        shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, "influxdb-srelay.conf"))
+        os.chmod(os.path.join(build_root, "influxdb-srelay.conf"), 0o644)
     else:
         logging.debug("Copying scripts and sample configuration to build directory.")
         shutil.copyfile(INIT_SCRIPT, os.path.join(build_root, SCRIPT_DIR[1:], INIT_SCRIPT.split('/')[1]))
         os.chmod(os.path.join(build_root, SCRIPT_DIR[1:], INIT_SCRIPT.split('/')[1]), 0o644)
         shutil.copyfile(SYSTEMD_SCRIPT, os.path.join(build_root, SCRIPT_DIR[1:], SYSTEMD_SCRIPT.split('/')[1]))
         os.chmod(os.path.join(build_root, SCRIPT_DIR[1:], SYSTEMD_SCRIPT.split('/')[1]), 0o644)
-        shutil.copyfile(LOGROTATE_SCRIPT, os.path.join(build_root, LOGROTATE_DIR[1:], "influxdb-relay"))
-        os.chmod(os.path.join(build_root, LOGROTATE_DIR[1:], "influxdb-relay"), 0o644)
-        shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, CONFIG_DIR[1:], "influxdb-relay.conf"))
-        os.chmod(os.path.join(build_root, CONFIG_DIR[1:], "influxdb-relay.conf"), 0o644)
+        shutil.copyfile(LOGROTATE_SCRIPT, os.path.join(build_root, LOGROTATE_DIR[1:], "influxdb-srelay"))
+        os.chmod(os.path.join(build_root, LOGROTATE_DIR[1:], "influxdb-srelay"), 0o644)
+        shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, CONFIG_DIR[1:], "influxdb-srelay.conf"))
+        os.chmod(os.path.join(build_root, CONFIG_DIR[1:], "influxdb-srelay.conf"), 0o644)
 
 def go_get(branch, update=False, no_uncommitted=False):
     """Retrieve build dependencies or restore pinned dependencies.

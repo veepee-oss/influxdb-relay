@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vente-privee/influxdb-relay/config"
+	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
 var (
@@ -363,7 +363,7 @@ func TestHandlePromBackendUp(t *testing.T) {
 	defer resetWriter()
 	h := createHTTP(t, emptyConfig, false)
 
-	cfgOutProm := config.HTTPOutputConfig{Name: "test_prometheus", Location: ValidServer.URL, Endpoints:config.HTTPEndpointConfig{PromWrite:"/prom"}}
+	cfgOutProm := config.HTTPOutputConfig{Name: "test_prometheus", Location: ValidServer.URL, Endpoints: config.HTTPEndpointConfig{PromWrite: "/prom"}}
 	promBody.buf = bytes.NewBuffer([]byte{})
 	r, err := http.NewRequest(http.MethodPost, ValidServer.URL, promBody)
 	if err != nil {
@@ -392,7 +392,6 @@ func TestHandlePromBackendUpError400(t *testing.T) {
 	WriterTest(t, BackendUpPromError400Writer, w)
 	h.backends = h.backends[:0]
 }
-
 
 func TestHandlePromBackendUpError500(t *testing.T) {
 	defer resetWriter()
@@ -633,4 +632,3 @@ func TestAdminErrorClient(t *testing.T) {
 	buf2, _ := ioutil.ReadAll(AdminWriterClientError.writeBuf)
 	assert.Equal(t, buf[:43], buf2[:43])
 }
-

@@ -2,9 +2,9 @@
   name = "github.com/influxdata/influxdb"
   version = "1.5.4"
 
-[[constraint]]
-  name = "github.com/naoina/toml"
-  version = "0.1.1"
+#[[constraint]]
+#  name = "github.com/naoina/toml"
+#  version = "0.1.1"
 
 [prune]
   go-tests = true

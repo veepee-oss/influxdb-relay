@@ -2,12 +2,36 @@
 
 
 [[projects]]
+  digest = "1:9f3b30d9f8e0d7040f729b82dcbc8f0dead820a133b3147ce355fc451f32d761"
+  name = "github.com/BurntSushi/toml"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "3012a1dbe2e4bd1391d42b32f0577cb7bbc7f005"
+  version = "v0.3.1"
+
+[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = "UT"
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
   version = "v1.1.1"
+
+[[projects]]
+  digest = "1:48092bf6632f55839850666c33469f546f6d45fdbd59a66759ec12e84d853dc2"
+  name = "github.com/gogo/protobuf"
+  packages = ["proto"]
+  pruneopts = "UT"
+  revision = "ba06b47c162d49f2af050fb4c75bcbc86a159d5c"
+  version = "v1.2.1"
+
+[[projects]]
+  digest = "1:e4f5819333ac698d294fe04dbf640f84719658d5c7ce195b10060cc37292ce79"
+  name = "github.com/golang/snappy"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2a8bb927dd31d8daada140a5d09578521ce5c36a"
+  version = "v0.0.1"
 
 [[projects]]
   digest = "1:6bf12e1967bbd963fc29ca4ed39192c255cbea866521569d4bf542ca71a3c03a"
@@ -21,25 +45,6 @@
   version = "v1.5.4"
 
 [[projects]]
-  digest = "1:b56c589214f01a5601e0821387db484617392d0042f26234bf2da853a2f498a1"
-  name = "github.com/naoina/go-stringutil"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "6b638e95a32d0c1131db0e7fe83775cbea4a0d0b"
-  version = "v0.1.0"
-
-[[projects]]
-  digest = "1:f58c3d0e46b64878d00652fedba24ee879725191ab919dca7b62586859281c04"
-  name = "github.com/naoina/toml"
-  packages = [
-    ".",
-    "ast",
-  ]
-  pruneopts = "UT"
-  revision = "e6f5723bf2a66af014955e0888881314cf294129"
-  version = "v0.1.1"
-
-[[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
@@ -48,24 +53,25 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:fb63fb6cb9cf7310c6bd83998cc430ee5af1ec52612572ecb42c7aad74bd3598"
+  name = "github.com/rs/zerolog"
+  packages = [
+    ".",
+    "internal/cbor",
+    "internal/json",
+    "log",
+  ]
+  pruneopts = "UT"
+  revision = "acf3980132bfcdc48638724e6e3d9e5749b85999"
+  version = "v1.14.3"
+
+[[projects]]
   digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
   name = "github.com/stretchr/testify"
   packages = ["assert"]
   pruneopts = "UT"
   revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
   version = "v1.2.2"
-
-[[projects]]
-  branch = "develop"
-  digest = "1:11fb2387230d982210a8e548992e0425684b1e9dd75111df2342c05d5b87bc40"
-  name = "github.com/toni-moreno/influxdb-srelay"
-  packages = [
-    "config",
-    "relay",
-    "relayservice",
-  ]
-  pruneopts = "UT"
-  revision = "289dc07d8576ae249b087856c569a5c5475d6a41"
 
 [[projects]]
   branch = "master"
@@ -79,12 +85,13 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/BurntSushi/toml",
+    "github.com/gogo/protobuf/proto",
+    "github.com/golang/snappy",
     "github.com/influxdata/influxdb/models",
-    "github.com/naoina/toml",
+    "github.com/rs/zerolog",
+    "github.com/rs/zerolog/log",
     "github.com/stretchr/testify/assert",
-    "github.com/toni-moreno/influxdb-srelay/config",
-    "github.com/toni-moreno/influxdb-srelay/relay",
-    "github.com/toni-moreno/influxdb-srelay/relayservice",
     "golang.org/x/time/rate",
   ]
   solver-name = "gps-cdcl"

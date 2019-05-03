@@ -2,10 +2,11 @@ package relay
 
 import (
 	"errors"
-	"github.com/rs/zerolog"
-	"github.com/toni-moreno/influxdb-srelay/config"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
 type HTTPEndPoint struct {

@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,7 +14,9 @@ type response struct {
 }
 
 type responseData struct {
-	id              string
+	serverid        string
+	clusterid       string
+	location        string
 	ContentType     string
 	ContentEncoding string
 	StatusCode      int
@@ -46,4 +49,33 @@ func jsonResponse(w http.ResponseWriter, r response) {
 	w.WriteHeader(r.code)
 
 	_, _ = w.Write(data)
+}
+
+type RequestResponses struct {
+	responses    []*responseData
+	numResponses int
+}
+
+func InitRequesetResponse(r *http.Request) *http.Request {
+	rr := &RequestResponses{responses: []*responseData{}}
+	ctx := context.WithValue(r.Context(), "request_responses", rr)
+	return r.WithContext(ctx)
+}
+
+func GetResponses(r *http.Request) []*responseData {
+	rr := r.Context().Value("request_responses").(*RequestResponses)
+	if rr != nil {
+		return rr.responses
+	}
+	return nil
+}
+func GetRequestResponses(r *http.Request) *RequestResponses {
+	rr := r.Context().Value("request_responses").(*RequestResponses)
+	return rr
+}
+
+func (rd *responseData) AppendToRequest(r *http.Request) {
+	rr := r.Context().Value("request_responses").(*RequestResponses)
+	rr.responses = append(rr.responses, rd)
+	rr.numResponses++
 }

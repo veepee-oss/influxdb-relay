@@ -2,19 +2,21 @@ package relay
 
 import (
 	"bytes"
-	"errors"
-	"github.com/rs/zerolog"
-
 	"encoding/json"
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/snappy"
-	"github.com/influxdata/influxdb/models"
-	"github.com/toni-moreno/influxdb-srelay/config"
-	"github.com/toni-moreno/influxdb-srelay/prometheus"
-	"github.com/toni-moreno/influxdb-srelay/prometheus/remote"
+	"errors"
 	"net/http"
 	"regexp"
 	"time"
+
+	"github.com/rs/zerolog"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/snappy"
+	"github.com/influxdata/influxdb/models"
+
+	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/prometheus"
+	"github.com/toni-moreno/influxdb-srelay/prometheus/remote"
 )
 
 type RouteFilter struct {
@@ -180,7 +182,7 @@ func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, st
 		for _, p := range params.Points {
 			if rr.filter.Match(p.Name()) {
 				rr.log.Debug().Msgf("Replace Measurement name %s by %s ", p.Name(), rr.cfg.Value)
-				newName := rr.filter.ReplaceAllLiteralString(string(p.Name()), rr.cfg.Value)
+				newName := rr.filter.ReplaceAllString(string(p.Name()), rr.cfg.Value)
 				p.SetName(newName)
 			}
 		}
@@ -196,6 +198,93 @@ func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, st
 
 // RENAME Influx
 func (rr *RouteRule) ActionRenameDataHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+	return nil
+}
+
+func (rr *RouteRule) ActionRenameDBFromData(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+
+	if rr.Type != "WR" {
+		rr.log.Error().Msgf("Error Wrong type Rule in %s", rr.cfg.Name)
+		return nil
+	}
+	dbs := make(map[string]models.Points)
+
+	switch rr.cfg.Key {
+	case "measurement":
+		for _, p := range params.Points {
+			if rr.filter.Match(p.Name()) {
+				dbName := rr.filter.ReplaceAllString(string(p.Name()), rr.cfg.Value)
+				rr.log.Debug().Msgf("Got DB name %s from  Measurement name %s by %s ", dbName, p.Name(), rr.cfg.Value)
+				if newpoints, ok := dbs[dbName]; ok {
+					newpoints = append(newpoints, p)
+					dbs[dbName] = newpoints
+				} else {
+					dbs[dbName] = models.Points{p}
+				}
+			}
+		}
+	case "tag":
+		tagkey := rr.cfg.KeyAux
+		// need for rr.cfg.Key_aux
+		for _, p := range params.Points {
+			//rr.log.Debug().Msgf("POINT :%+v", p)
+			var tagvalue []byte
+			for _, t := range p.Tags() {
+				//				rr.log.Debug().Msgf("Found Tag %d [%s] tagkey[%s] with value [%s]  | %s", k, t.Key, tagkey, t.Value, t.String())
+				if string(t.Key) == tagkey {
+					tagvalue = t.Value
+					break
+				}
+			}
+
+			if len(tagvalue) > 0 && rr.filter.Match(tagvalue) {
+				//rr.log.Debug().Msgf("Found Tag key [%s] with value [%s]", tagkey, tagvalue)
+				dbName := rr.filter.ReplaceAllString(string(tagvalue), rr.cfg.Value)
+				rr.log.Debug().Msgf("Got DB name %s from Tag key %s Tag Value %s", dbName, tagkey, tagvalue)
+				//rr.log.Debug().Msgf("POINT :%+v", p)
+				if newpoints, ok := dbs[dbName]; ok {
+					newpoints = append(newpoints, p)
+					dbs[dbName] = newpoints
+				} else {
+					dbs[dbName] = models.Points{p}
+				}
+
+			}
+		}
+
+	case "field":
+		rr.log.Warn().Msgf("Field Rename Not Supported Yet on rule %s", rr.cfg.Name)
+
+	default:
+		rr.log.Warn().Msgf("Rename Data key  %d not supported in rule %s", rr.cfg.Key, rr.cfg.Name)
+	}
+
+	for db, p := range dbs {
+
+		rr.log.Info().Msgf("processing output for db %s : # %d Points", db, len(p))
+		//rr.log.Debug().Msgf("processing output for db %s : %+v", db, p)
+
+		if val, ok := clusters[rr.cfg.ToCluster]; ok {
+
+			data, err := InfluxEncode(p)
+			if err != nil {
+				rr.log.Warn().Msgf("Data Enconding Error: %s", err)
+				continue
+			}
+
+			newParams := params.Clone()
+			newParams.SetDB(db)
+
+			rr.log.Info().Msg("Handle Write.....")
+			return val.WriteData(w, newParams, data)
+
+			return nil
+
+		} else {
+			rr.log.Warn().Msgf("There is no registered cluster %s ", rr.cfg.Value)
+		}
+
+	}
 	return nil
 }
 
@@ -223,6 +312,8 @@ func NewRouteRule(cfg *config.Rule, mode string, l *zerolog.Logger, routelevel s
 		rr.Process = rr.ActionRenameData
 	case "rename_data_http":
 		rr.Process = rr.ActionRenameDataHTTP
+	case "route_db_from_data":
+		rr.Process = rr.ActionRenameDBFromData
 	default:
 		return rr, errors.New("Unknown rule action " + cfg.Action + " on Rule:" + rr.cfg.Name)
 	}
@@ -327,7 +418,7 @@ type HTTPRoute struct {
 	filters    []*RouteFilter
 	rules      []*RouteRule
 	DecodeData func(w http.ResponseWriter, r *http.Request) (models.Points, error)
-	responses  []*responseData
+	//responses  []*responseData
 }
 
 func NewHTTPRoute(cfg *config.Route, mode string, l *zerolog.Logger, format string) (*HTTPRoute, error) {
@@ -375,6 +466,53 @@ func (rt *HTTPRoute) MatchFilter(params *InfluxParams) bool {
 	return false
 }
 
+func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) {
+
+	var errResponse *responseData
+
+	responses := GetResponses(r)
+
+	if len(responses) == 0 {
+		rt.log.Info().Msgf("No responses found on request route %s ", rt.cfg.Name)
+		return
+	}
+	rt.log.Debug().Msgf("Recovered %d, responses", len(responses))
+
+	w.Header().Set("Content-Type", "text/plain")
+
+	for _, resp := range responses {
+		rt.log.Debug().Msgf("RESPONSE from (CLUSTER:%s|SERVER:%s|LOCATION%s) : HTTP CODE %d content/type  (%s) %s", resp.clusterid, resp.serverid, resp.location, resp.StatusCode, resp.ContentType, string(resp.Body))
+		switch resp.StatusCode / 100 {
+		case 2:
+			// Status accepted means buffering,
+			if resp.StatusCode == http.StatusAccepted {
+				rt.log.Info().Msg("could not reach relay, buffering...")
+				w.WriteHeader(http.StatusAccepted)
+				return
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+			return
+
+		case 4:
+			// User error
+			resp.Write(w)
+			return
+
+		default:
+			// Hold on to one of the responses to return back to the client
+			errResponse = nil
+		}
+	}
+
+	// No successful writes
+	if errResponse == nil {
+		// Failed to make any valid request...
+		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
+		return
+	}
+}
+
 // TODO: build an only httpError interface for all
 func httpError(w http.ResponseWriter, errmsg string, code int) {
 	// Default implementation if the response writer hasn't been replaced
@@ -398,8 +536,16 @@ func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start 
 		p.Points = points
 	}
 
+	//R = r + Response handler
+	R := InitRequesetResponse(r)
+
 	for _, rule := range rt.rules {
-		resp := rule.Process(w, r, start, p)
-		rt.responses = append(rt.responses, resp...)
+		responses := rule.Process(w, R, start, p)
+		for _, resp := range responses {
+			resp.AppendToRequest(R)
+		}
+
 	}
+	rt.HandleHTTPResponse(w, R)
+
 }

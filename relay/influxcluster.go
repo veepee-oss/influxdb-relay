@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/toni-moreno/influxdb-srelay/config"
+
 	"golang.org/x/time/rate"
 	"io"
 	"io/ioutil"
@@ -16,6 +14,10 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
 type health struct {
@@ -137,7 +139,7 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 		}
 		log.Printf("Config Cluster %s member: %s [%+v]", cfg.Name, beName, becfg)
 
-		backend, err := NewDBBackend(becfg, c.log)
+		backend, err := NewDBBackend(becfg, c.log, c.cfg.Name)
 		if err != nil {
 			return c, err
 		}
@@ -347,40 +349,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 
 	c.putBuf(bodyBuf)
 
-	var errResponse *responseData
-
-	w.Header().Set("Content-Type", "text/plain")
-
-	c.log.Debug().Msgf("RESPONSE from (%s) : %d content/type  (%s) %s", resp.id, resp.StatusCode, resp.ContentType, string(resp.Body))
-	switch resp.StatusCode / 100 {
-	case 2:
-		// Status accepted means buffering,
-		if resp.StatusCode == http.StatusAccepted {
-			c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
-			w.WriteHeader(http.StatusAccepted)
-			return nil
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-		return nil
-
-	case 4:
-		// User error
-		resp.Write(w)
-		return nil
-
-	default:
-		// Hold on to one of the responses to return back to the client
-		errResponse = nil
-	}
-
-	// No successful writes
-	if errResponse == nil {
-		// Failed to make any valid request...
-		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
-		return []*responseData{errResponse}
-	}
-	return []*responseData{errResponse}
+	return []*responseData{resp}
 }
 
 func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData {
@@ -435,45 +404,7 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 		c.putBuf(bodyBuf)
 	}()
 
-	var errResponse *responseData
-
-	w.Header().Set("Content-Type", "text/plain")
-
-	ret := []*responseData{}
-
-	for resp := range responses {
-		c.log.Debug().Msgf("RESPONSE from (%s) : %d content/type  (%s) %s", resp.id, resp.StatusCode, resp.ContentType, string(resp.Body))
-		switch resp.StatusCode / 100 {
-		case 2:
-			// Status accepted means buffering,
-			if resp.StatusCode == http.StatusAccepted {
-				c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
-				w.WriteHeader(http.StatusAccepted)
-				return nil
-			}
-
-			w.WriteHeader(http.StatusNoContent)
-			return nil
-
-		case 4:
-			// User error
-			resp.Write(w)
-			return nil
-
-		default:
-			// Hold on to one of the responses to return back to the client
-			errResponse = nil
-		}
-		ret = append(ret, resp)
-	}
-
-	// No successful writes
-	if errResponse == nil {
-		// Failed to make any valid request...
-		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
-		return ret
-	}
-	return ret
+	return ChanToSlice(responses).([]*responseData)
 }
 
 func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
@@ -488,40 +419,7 @@ func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *InfluxPar
 		}
 	}
 
-	var errResponse *responseData
-
-	w.Header().Set("Content-Type", "text/plain")
-
-	c.log.Debug().Msgf("RESPONSE from (%s) : %d content/type  (%s) %s", resp.id, resp.StatusCode, resp.ContentType, string(resp.Body))
-	switch resp.StatusCode / 100 {
-	case 2:
-		// Status accepted means buffering,
-		if resp.StatusCode == http.StatusAccepted {
-			c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
-			w.WriteHeader(http.StatusAccepted)
-			return nil
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-		return nil
-
-	case 4:
-		// User error
-		resp.Write(w)
-		return nil
-
-	default:
-		// Hold on to one of the responses to return back to the client
-		errResponse = nil
-	}
-
-	// No successful writes
-	if errResponse == nil {
-		// Failed to make any valid request...
-		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
-		return nil
-	}
-	return []*responseData{errResponse}
+	return []*responseData{resp}
 }
 
 func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
@@ -531,12 +429,17 @@ func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams,
 
 	var responses = make(chan *responseData, len(c.backends))
 
+	encode := params.QueryEncode()
+	databytes := data.Bytes()
+	auth := params.Header["authorization"]
+
 	for _, b := range c.backends {
 		b := b
 
 		go func() {
 			defer wg.Done()
-			resp, err := b.post(data.Bytes(), params.QueryEncode(), params.Header["autorization"], "write")
+			c.log.Debug().Msgf("Writing data on %s Data length %d", b.cfg.Name, len(databytes))
+			resp, err := b.post(databytes, encode, auth, "write")
 			if err != nil {
 				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, err)
 				responses <- &responseData{}
@@ -554,184 +457,8 @@ func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams,
 		close(responses)
 	}()
 
-	var errResponse *responseData
-
-	w.Header().Set("Content-Type", "text/plain")
-
-	ret := []*responseData{}
-
-	for resp := range responses {
-		c.log.Debug().Msgf("RESPONSE from (%s) : %d content/type  (%s) %s", resp.id, resp.StatusCode, resp.ContentType, string(resp.Body))
-		switch resp.StatusCode / 100 {
-		case 2:
-			// Status accepted means buffering,
-			if resp.StatusCode == http.StatusAccepted {
-				c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
-				w.WriteHeader(http.StatusAccepted)
-				return nil
-			}
-
-			w.WriteHeader(http.StatusNoContent)
-			return nil
-
-		case 4:
-			// User error
-			resp.Write(w)
-			return nil
-
-		default:
-			// Hold on to one of the responses to return back to the client
-			errResponse = nil
-		}
-		ret = append(ret, resp)
-	}
-
-	// No successful writes
-	if errResponse == nil {
-		// Failed to make any valid request...
-		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
-		return ret
-	}
-	return ret
+	return ChanToSlice(responses).([]*responseData)
 }
-
-/*
-func (c *Cluster) handleProm(w http.ResponseWriter, r *http.Request, _ time.Time) {
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", http.MethodPost)
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-		} else {
-			jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
-			return
-		}
-	}
-
-	authHeader := r.Header.Get("Authorization")
-
-	//db := queryParams.Get("db")
-
-	bodyBuf := getBuf()
-	_, _ = bodyBuf.ReadFrom(r.Body)
-
-	reqBuf, err := snappy.Decode(nil, bodyBuf.Bytes())
-
-	if err != nil {
-		c.httpError(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Convert the Prometheus remote write request to Influx Points
-	var req remote.WriteRequest
-	if err := proto.Unmarshal(reqBuf, &req); err != nil {
-		c.httpError(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	points, err := prometheus.WriteRequestToPoints(&req)
-	if err != nil {
-
-		c.log.Printf("Prom write handler Error %s", err)
-
-		// Check if the error was from something other than dropping invalid values.
-		if _, ok := err.(prometheus.DroppedValuesError); !ok {
-			c.httpError(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-	}
-
-	for _, p := range points {
-		tags := p.Tags()
-		var namespace string
-
-		for _, tag := range tags {
-			//c.log.Printf("->Found TAG: %s: Value: %s\n", tag.Key, tag.Value)
-			matched, err := regexp.Match(".*namespace.*", tag.Key)
-			if err == nil && matched {
-
-				namespace = string(tag.Value)
-			}
-
-		}
-		if len(namespace) > 0 {
-			c.log.Printf("PROMETHEUS POINT: [ %s ]  NAMESPACE FOUND %s\n", p.Name(), namespace)
-		} else {
-			c.log.Printf("PROMETHEUS POINT: [ %s ] NO NAMESPACE => Default ", p.Name())
-		}
-
-	}
-
-	outBytes := bodyBuf.Bytes()
-
-	var wg sync.WaitGroup
-	wg.Add(len(c.backends))
-
-	var responses = make(chan *responseData, len(c.backends))
-
-	for _, b := range c.backends {
-		b := b
-
-		go func() {
-			defer wg.Done()
-			resp, err := b.post(outBytes, r.URL.RawQuery, authHeader, b.endpoints.PromWrite)
-			if err != nil {
-				c.log.Info().Msgf("problem posting to relay %q backend %q: %v", c.Name(), b.cfg.Name, err)
-
-				responses <- &responseData{}
-			} else {
-				if resp.StatusCode/100 == 5 {
-					c.log.Info().Msgf("5xx response for relay %q backend %q: %v", c.Name(), b.cfg.Name, resp.StatusCode)
-				}
-
-				responses <- resp
-			}
-		}()
-	}
-
-	go func() {
-		wg.Wait()
-		close(responses)
-		putBuf(bodyBuf)
-	}()
-
-	var errResponse *responseData
-
-	w.Header().Set("Content-Type", "text/plain")
-
-	for resp := range responses {
-
-		switch resp.StatusCode / 100 {
-		case 2:
-			// Status accepted means buffering,
-			if resp.StatusCode == http.StatusAccepted {
-				if c.log {
-					c.log.Printf("could not reach relay %q, buffering...", c.Name())
-				}
-				w.WriteHeader(http.StatusAccepted)
-				return
-			}
-
-			w.WriteHeader(http.StatusNoContent)
-			return
-
-		case 4:
-			// User error
-			resp.Write(w)
-			return
-
-		default:
-			// Hold on to one of the responses to return back to the client
-			errResponse = nil
-		}
-	}
-
-	// No successful writes
-	if errResponse == nil {
-		// Failed to make any valid request...
-		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
-		return
-	}
-}*/
 
 func (c *Cluster) getValidQueryBackend() *dbBackend {
 	nEndp := len(c.queryRouterEndpointAPI)

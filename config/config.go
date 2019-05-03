@@ -72,13 +72,13 @@ type Filter struct {
 }
 
 type Rule struct {
-	Name    string `toml:"name"`
-	Action  string `toml:"action"`
-	Key     string `toml:"key"`
-	KeyAux  string `toml:"key_aux`
-	keyDest string `toml:"key_dest`
-	Match   string `toml:"match"`
-	Value   string `toml:"value"`
+	Name      string `toml:"name"`
+	Action    string `toml:"action"`
+	Key       string `toml:"key"`
+	KeyAux    string `toml:"key_aux"`
+	Match     string `toml:"match"`
+	Value     string `toml:"value"`
+	ToCluster string `toml:"to_cluster"`
 }
 
 type Route struct {

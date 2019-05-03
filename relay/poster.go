@@ -16,11 +16,13 @@ type poster interface {
 }
 
 type simplePoster struct {
-	client   *http.Client
-	location string
+	serverid  string
+	clusterid string
+	client    *http.Client
+	location  string
 }
 
-func newSimplePoster(location string, timeout time.Duration, skipTLSVerification bool) *simplePoster {
+func newSimplePoster(serverid string, location string, clusterid string, timeout time.Duration, skipTLSVerification bool) *simplePoster {
 	// Configure custom transport for http.Client
 	// Used for support skip-tls-verification option
 	transport := &http.Transport{
@@ -34,7 +36,9 @@ func newSimplePoster(location string, timeout time.Duration, skipTLSVerification
 			Timeout:   timeout,
 			Transport: transport,
 		},
-		location: location,
+		location:  location,
+		serverid:  serverid,
+		clusterid: clusterid,
 	}
 }
 
@@ -45,7 +49,7 @@ func (s *simplePoster) getStats() map[string]string {
 }
 
 func (s *simplePoster) post(buf []byte, query string, auth string, endpoint string) (*responseData, error) {
-	ret := &responseData{id: s.location}
+	ret := &responseData{serverid: s.serverid, clusterid: s.clusterid, location: s.location}
 	req, err := http.NewRequest("POST", s.location+endpoint, bytes.NewReader(buf))
 	if err != nil {
 		return ret, err

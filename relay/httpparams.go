@@ -1,11 +1,12 @@
 package relay
 
 import (
-	"github.com/influxdata/influxdb/models"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/influxdata/influxdb/models"
 )
 
 type InfluxParams struct {
@@ -59,6 +60,10 @@ func (ip *InfluxParams) QueryEncode() string {
 		buf.WriteString(url.QueryEscape(vs))
 	}
 	return buf.String()
+}
+
+func (ip *InfluxParams) SetDB(db string) {
+	ip.Query["db"] = db
 }
 
 /*

@@ -40,7 +40,7 @@ func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, er
 		return e, errors.New("Unknown Source Format " + e.cfg.SourceFormat)
 	}
 	for _, r := range e.cfg.Route {
-		rt, err := NewHTTPRoute(r, cfg.Type, e.log)
+		rt, err := NewHTTPRoute(r, cfg.Type, e.log, cfg.SourceFormat)
 		if err != nil {
 			return e, err
 		}

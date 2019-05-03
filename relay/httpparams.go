@@ -1,12 +1,64 @@
 package relay
 
 import (
+	"github.com/influxdata/influxdb/models"
 	"net/http"
+	"net/url"
+	"sort"
+	"strings"
 )
 
 type InfluxParams struct {
 	Header map[string]string
 	Query  map[string]string
+	Points models.Points
+}
+
+func (ip *InfluxParams) Clone() *InfluxParams {
+	return &InfluxParams{
+		Header: map[string]string{
+			"authorization":  ip.Header["authorization"],
+			"remote-address": ip.Header["remote-address"],
+			"referer":        ip.Header["referer"],
+			"user-agent":     ip.Header["user-agent"],
+		},
+		Query: map[string]string{
+			"db":        ip.Query["db"],
+			"q":         ip.Query["q"],
+			"epoch":     ip.Query["epoch"],
+			"chunked":   ip.Query["chunked"],
+			"chunksize": ip.Query["chunksize"],
+			"pretty":    ip.Query["pretty"],
+			"u":         ip.Query["u"],
+			"p":         ip.Query["p"],
+		},
+	}
+}
+
+func (ip *InfluxParams) QueryEncode() string {
+	if ip == nil {
+		return ""
+	}
+	v := ip.Query
+	var buf strings.Builder
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		vs := v[k]
+		keyEscaped := url.QueryEscape(k)
+		if buf.Len() > 0 {
+			buf.WriteByte('&')
+		}
+		buf.WriteString(keyEscaped)
+		buf.WriteByte('=')
+		buf.WriteString(url.QueryEscape(vs))
+	}
+	return buf.String()
 }
 
 /*

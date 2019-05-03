@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/influxdata/influxdb/models"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/toni-moreno/influxdb-srelay/config"
@@ -48,8 +47,9 @@ type Cluster struct {
 
 	queryRouterEndpointAPI []string
 
-	Write func(w http.ResponseWriter, r *http.Request, start time.Time)
-	Query func(w http.ResponseWriter, r *http.Request, start time.Time)
+	WriteHTTP func(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData
+	WriteData func(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData
+	QueryHTTP func(w http.ResponseWriter, r *http.Request, start time.Time)
 
 	bufPool sync.Pool
 }
@@ -107,14 +107,17 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 
 	switch c.cfg.Type {
 	case "HA":
-		c.Write = c.handleWriteHA
-		c.Query = c.handleQueryHA
+		c.WriteHTTP = c.handleWriteHA
+		c.WriteData = c.handleWriteDataHA
+		c.QueryHTTP = c.handleQueryHA
 	case "Single", "SINGLE":
-		c.Write = c.handleWriteSingle
-		c.Query = c.handleQuerySingle
+		c.WriteHTTP = c.handleWriteSingle
+		c.WriteData = c.handleWriteDataSingle
+		c.QueryHTTP = c.handleQuerySingle
 	default:
-		c.Write = c.handleQuerySingle
-		c.Query = c.handleQuerySingle
+		c.WriteHTTP = c.handleWriteSingle
+		c.WriteData = c.handleWriteDataSingle
+		c.QueryHTTP = c.handleQuerySingle
 	}
 
 	//check url is ok //pending a first query
@@ -308,53 +311,29 @@ func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData {
 
 	// check if can continue
 
 	cont := c.handleWriteBase(w, r)
 	if !cont {
-		return
+		return nil
 	}
 
 	queryParams := r.URL.Query()
 	bodyBuf := c.getBuf()
 	_, _ = bodyBuf.ReadFrom(r.Body)
 
-	precision := queryParams.Get("precision")
-	points, err := models.ParsePointsWithPrecision(bodyBuf.Bytes(), start, precision)
-	if err != nil {
-		c.putBuf(bodyBuf)
-		c.log.Info().Msgf("parse points error: %s", err)
-		jsonResponse(w, response{http.StatusBadRequest, "unable to parse points"})
-		return
-	}
-
-	//c.log.Debug().Msgf("Got %d points: %s", len(points), string(bodyBuf.Bytes()))
-
-	outBuf := c.getBuf()
-	for _, p := range points {
-		// Those two functions never return any errors, let's just ignore the return value
-		_, _ = outBuf.WriteString(p.PrecisionString(precision))
-		_ = outBuf.WriteByte('\n')
-	}
-
 	// done with the input points
-	c.putBuf(bodyBuf)
-
 	// normalize query string
 	query := queryParams.Encode()
 
-	outBytes := outBuf.Bytes()
+	outBytes := bodyBuf.Bytes()
 
 	c.log.Info().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
-	c.log.Info().Msgf("Content Length OUTBUF : %d", len(outBuf.String()))
 
 	// check for authorization performed via the header
 	authHeader := r.Header.Get("Authorization")
-
-	var wg sync.WaitGroup
-	wg.Add(len(c.backends))
 
 	b := c.backends[0]
 	resp, err := b.post(outBytes, query, authHeader, "write")
@@ -366,7 +345,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 		}
 	}
 
-	c.putBuf(outBuf)
+	c.putBuf(bodyBuf)
 
 	var errResponse *responseData
 
@@ -379,16 +358,16 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 		if resp.StatusCode == http.StatusAccepted {
 			c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
 			w.WriteHeader(http.StatusAccepted)
-			return
+			return nil
 		}
 
 		w.WriteHeader(http.StatusNoContent)
-		return
+		return nil
 
 	case 4:
 		// User error
 		resp.Write(w)
-		return
+		return nil
 
 	default:
 		// Hold on to one of the responses to return back to the client
@@ -399,17 +378,18 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 	if errResponse == nil {
 		// Failed to make any valid request...
 		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
-		return
+		return []*responseData{errResponse}
 	}
+	return []*responseData{errResponse}
 }
 
-func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData {
 
 	// check if can continue
 
 	cont := c.handleWriteBase(w, r)
 	if !cont {
-		return
+		return nil
 	}
 
 	//Query
@@ -418,40 +398,11 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 	bodyBuf := c.getBuf()
 	_, _ = bodyBuf.ReadFrom(r.Body)
 
-	/*precision := queryParams.Get("precision")
-	points, err := models.ParsePointsWithPrecision(bodyBuf.Bytes(), start, precision)
-	if err != nil {
-		c.putBuf(bodyBuf)
-		c.log.Info().Msgf("parse points error: %s", err)
-		jsonResponse(w, response{http.StatusBadRequest, "unable to parse points"})
-		return
-	}*/
-
-	//c.log.Debug().Msgf("Got %d points: %s", len(points), string(bodyBuf.Bytes()))
-
-	////	outBuf := c.getBuf()
-
-	/*for _, p := range points {
-		// Those two functions never return any errors, let's just ignore the return value
-		_, _ = outBuf.WriteString(p.PrecisionString(precision))
-		_ = outBuf.WriteByte('\n')
-	}*/
-
-	// done with the input points
-	/////	c.putBuf(bodyBuf)
-
-	// normalize query string
 	query := queryParams.Encode()
 
-	////outBytes := outBuf.Bytes()
 	outBytes := bodyBuf.Bytes()
 
 	c.log.Info().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
-	////c.log.Info().Msgf("Content Length OUTBUF : %d", len(outBuf.String()))
-
-	//c.log.Debug().Msgf("Content BODYBUF: %s", bodyBuf.String())
-	//c.log.Debug().Msgf("Content OUTBUF : %s", outBuf.String())
-
 	// check for authorization performed via the header
 	authHeader := r.Header.Get("Authorization")
 
@@ -462,18 +413,6 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 
 	for _, b := range c.backends {
 		b := b
-
-		// Don't do the request if the tags do not match the filters
-		/*err := b.validateRegexps(points)
-		if err != nil {
-			if c.log {
-				c.log.Printf("request invalidated by regular expression for backend: %s", b.cfg.Name)
-				c.log.Printf(err.Error())
-			}
-
-			wg.Done()
-			continue
-		}*/
 
 		go func() {
 			defer wg.Done()
@@ -494,12 +433,13 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 		wg.Wait()
 		close(responses)
 		c.putBuf(bodyBuf)
-		////c.putBuf(outBuf)
 	}()
 
 	var errResponse *responseData
 
 	w.Header().Set("Content-Type", "text/plain")
+
+	ret := []*responseData{}
 
 	for resp := range responses {
 		c.log.Debug().Msgf("RESPONSE from (%s) : %d content/type  (%s) %s", resp.id, resp.StatusCode, resp.ContentType, string(resp.Body))
@@ -509,29 +449,150 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 			if resp.StatusCode == http.StatusAccepted {
 				c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
 				w.WriteHeader(http.StatusAccepted)
-				return
+				return nil
 			}
 
 			w.WriteHeader(http.StatusNoContent)
-			return
+			return nil
 
 		case 4:
 			// User error
 			resp.Write(w)
-			return
+			return nil
 
 		default:
 			// Hold on to one of the responses to return back to the client
 			errResponse = nil
 		}
+		ret = append(ret, resp)
 	}
 
 	// No successful writes
 	if errResponse == nil {
 		// Failed to make any valid request...
 		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
-		return
+		return ret
 	}
+	return ret
+}
+
+func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
+
+	b := c.backends[0]
+	resp, err := b.post(data.Bytes(), params.QueryEncode(), params.Header["authorization"], "write")
+	if err != nil {
+		c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, err)
+	} else {
+		if resp.StatusCode/100 == 5 {
+			c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, resp.StatusCode)
+		}
+	}
+
+	var errResponse *responseData
+
+	w.Header().Set("Content-Type", "text/plain")
+
+	c.log.Debug().Msgf("RESPONSE from (%s) : %d content/type  (%s) %s", resp.id, resp.StatusCode, resp.ContentType, string(resp.Body))
+	switch resp.StatusCode / 100 {
+	case 2:
+		// Status accepted means buffering,
+		if resp.StatusCode == http.StatusAccepted {
+			c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
+			w.WriteHeader(http.StatusAccepted)
+			return nil
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+
+	case 4:
+		// User error
+		resp.Write(w)
+		return nil
+
+	default:
+		// Hold on to one of the responses to return back to the client
+		errResponse = nil
+	}
+
+	// No successful writes
+	if errResponse == nil {
+		// Failed to make any valid request...
+		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
+		return nil
+	}
+	return []*responseData{errResponse}
+}
+
+func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
+
+	var wg sync.WaitGroup
+	wg.Add(len(c.backends))
+
+	var responses = make(chan *responseData, len(c.backends))
+
+	for _, b := range c.backends {
+		b := b
+
+		go func() {
+			defer wg.Done()
+			resp, err := b.post(data.Bytes(), params.QueryEncode(), params.Header["autorization"], "write")
+			if err != nil {
+				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, err)
+				responses <- &responseData{}
+			} else {
+				if resp.StatusCode/100 == 5 {
+					c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, resp.StatusCode)
+				}
+				responses <- resp
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(responses)
+	}()
+
+	var errResponse *responseData
+
+	w.Header().Set("Content-Type", "text/plain")
+
+	ret := []*responseData{}
+
+	for resp := range responses {
+		c.log.Debug().Msgf("RESPONSE from (%s) : %d content/type  (%s) %s", resp.id, resp.StatusCode, resp.ContentType, string(resp.Body))
+		switch resp.StatusCode / 100 {
+		case 2:
+			// Status accepted means buffering,
+			if resp.StatusCode == http.StatusAccepted {
+				c.log.Info().Msgf("could not reach relay %q, buffering...", c.cfg.Name)
+				w.WriteHeader(http.StatusAccepted)
+				return nil
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+			return nil
+
+		case 4:
+			// User error
+			resp.Write(w)
+			return nil
+
+		default:
+			// Hold on to one of the responses to return back to the client
+			errResponse = nil
+		}
+		ret = append(ret, resp)
+	}
+
+	// No successful writes
+	if errResponse == nil {
+		// Failed to make any valid request...
+		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
+		return ret
+	}
+	return ret
 }
 
 /*
@@ -554,6 +615,7 @@ func (c *Cluster) handleProm(w http.ResponseWriter, r *http.Request, _ time.Time
 	_, _ = bodyBuf.ReadFrom(r.Body)
 
 	reqBuf, err := snappy.Decode(nil, bodyBuf.Bytes())
+
 	if err != nil {
 		c.httpError(w, err.Error(), http.StatusBadRequest)
 		return

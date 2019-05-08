@@ -2,7 +2,9 @@ package relay
 
 import (
 	"compress/gzip"
+	"encoding/base64"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -21,7 +23,7 @@ func (h *HTTP) bodyMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 		if r.Header.Get("Content-Encoding") == "gzip" {
 			b, err := gzip.NewReader(r.Body)
 			if err != nil {
-				jsonResponse(w, response{http.StatusBadRequest, "unable to decode gzip body"})
+				jsonResponse(w, r, response{http.StatusBadRequest, "unable to decode gzip body"})
 				return
 			}
 			defer b.Close()
@@ -40,7 +42,7 @@ func (h *HTTP) queryMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 		queryParams := r.URL.Query()
 
 		if queryParams.Get("db") == "" && (r.URL.Path == "/write" || r.URL.Path == "/api/v1/prom/write") {
-			jsonResponse(w, response{http.StatusBadRequest, "missing parameter: db"})
+			jsonResponse(w, r, response{http.StatusBadRequest, "missing parameter: db"})
 			return
 		}
 
@@ -55,11 +57,54 @@ func (h *HTTP) queryMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 
 }
 
+func GetUserFromRequest(r *http.Request) string {
+
+	username := ""
+	found := false
+	//check authorization
+	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+
+	if len(auth) != 2 || auth[0] != "Basic" {
+		found = false
+	} else {
+		payload, _ := base64.StdEncoding.DecodeString(auth[1])
+		pair := strings.SplitN(string(payload), ":", 2)
+		username = pair[0]
+		found = true
+	}
+
+	if !found {
+		queryParams := r.URL.Query()
+		username = queryParams.Get("u")
+	}
+
+	if len(username) > 0 {
+		return username
+	}
+	return "-"
+
+}
+
 func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time) {
 		h.log.Debug().Msg("----------------------INIT logMiddleWare------------------------")
 		next(h, w, r, start)
-		h.log.Info().Msgf("got request on: %s  from :%s %s Response %s", r.URL.Path, r.RemoteAddr, r.Referer(), time.Since(start))
+		rc := GetRelayContext(r)
+
+		h.acclog.Info().
+			Str("trace-route", rc.TraceRoute.String()).
+			Str("referer", r.Referer()).
+			Str("url", r.URL.String()).
+			Int("write-size", rc.RequestSize).
+			Int("write-points", rc.RequestPoints).
+			Int("returnsize", rc.SentDataLength).
+			Dur("duration_ms", time.Since(start)).
+			Int("status", rc.SentHTTPStatus).
+			Str("method", r.Method).
+			Str("user", GetUserFromRequest(r)).
+			Str("source", r.RemoteAddr).
+			Str("user-agent", r.UserAgent()).
+			Msg("")
 		h.log.Debug().Msg("----------------------END logMiddleWare------------------------")
 	})
 }
@@ -69,7 +114,7 @@ func (h *HTTP) rateMiddleware(next relayHandlerFunc) relayHandlerFunc {
 		h.log.Debug().Msg("----------------------INIT rateMiddleware-----------------------")
 		if h.rateLimiter != nil && !h.rateLimiter.Allow() {
 			h.log.Debug().Msgf("Rate Limited => Too Many Request (Limit %+v)(Burst %d) ", h.rateLimiter.Limit(), h.rateLimiter.Burst)
-			jsonResponse(w, response{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)})
+			jsonResponse(w, r, response{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)})
 			return
 		}
 

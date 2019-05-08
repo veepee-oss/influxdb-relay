@@ -14,11 +14,16 @@ type Relay interface {
 
 var (
 	mainConfig config.Config
+	logDir     string
 	clusters   map[string]*Cluster
 )
 
 func SetConfig(cfg config.Config) {
 	mainConfig = cfg
+}
+
+func SetLogdir(ld string) {
+	logDir = ld
 }
 
 func InitClusters() error {

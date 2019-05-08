@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+
 	"regexp"
 	"time"
 
@@ -201,7 +202,7 @@ func (rr *RouteRule) ActionRenameDataHTTP(w http.ResponseWriter, r *http.Request
 	return nil
 }
 
-func (rr *RouteRule) ActionRenameDBFromData(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
 
 	if rr.Type != "WR" {
 		rr.log.Error().Msgf("Error Wrong type Rule in %s", rr.cfg.Name)
@@ -249,7 +250,10 @@ func (rr *RouteRule) ActionRenameDBFromData(w http.ResponseWriter, r *http.Reque
 					dbs[dbName] = models.Points{p}
 				}
 
-			}
+			} /* else {
+				//not match
+				rr.log.Debug().Msgf("Point does not match namespace TAGVALUE %s (Measuerement : %s) TAGS %+v", tagvalue, p.Name(), p.Tags())
+			}*/
 		}
 
 	case "field":
@@ -275,10 +279,13 @@ func (rr *RouteRule) ActionRenameDBFromData(w http.ResponseWriter, r *http.Reque
 			newParams := params.Clone()
 			newParams.SetDB(db)
 
-			rr.log.Info().Msg("Handle Write.....")
-			return val.WriteData(w, newParams, data)
-
-			return nil
+			rr.log.Info().Msgf("Handle DB route Write to %s.....", db)
+			resp := val.WriteData(w, newParams, data)
+			for _, r := range resp {
+				if r.StatusCode/100 != 2 {
+					rr.log.Error().Msgf("Error in write data to %s : Error: %s ", r.serverid, string(r.Body))
+				}
+			}
 
 		} else {
 			rr.log.Warn().Msgf("There is no registered cluster %s ", rr.cfg.Value)
@@ -313,7 +320,7 @@ func NewRouteRule(cfg *config.Rule, mode string, l *zerolog.Logger, routelevel s
 	case "rename_data_http":
 		rr.Process = rr.ActionRenameDataHTTP
 	case "route_db_from_data":
-		rr.Process = rr.ActionRenameDBFromData
+		rr.Process = rr.ActionRouteDBFromData
 	default:
 		return rr, errors.New("Unknown rule action " + cfg.Action + " on Rule:" + rr.cfg.Name)
 	}
@@ -322,25 +329,25 @@ func NewRouteRule(cfg *config.Rule, mode string, l *zerolog.Logger, routelevel s
 
 }
 
-func (rt *HTTPRoute) DecodePrometheus(w http.ResponseWriter, r *http.Request) (models.Points, error) {
+func (rt *HTTPRoute) DecodePrometheus(w http.ResponseWriter, r *http.Request) (int, models.Points, error) {
 
 	var bodyBuf bytes.Buffer
 	_, err := bodyBuf.ReadFrom(r.Body)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	reqBuf, err := snappy.Decode(nil, bodyBuf.Bytes())
 	if err != nil {
 		rt.log.Error().Msgf("Error on snappy decode prometheus : %s", err)
-		return nil, err
+		return 0, nil, err
 	}
 
 	// Convert the Prometheus remote write request to Influx Points
 	var req remote.WriteRequest
 	if err := proto.Unmarshal(reqBuf, &req); err != nil {
 		rt.log.Error().Msgf("Error on Unmarshall decode Prometheus ")
-		return nil, err
+		return 0, nil, err
 	}
 	points, err := prometheus.WriteRequestToPoints(&req)
 	if err != nil {
@@ -350,18 +357,18 @@ func (rt *HTTPRoute) DecodePrometheus(w http.ResponseWriter, r *http.Request) (m
 		// Check if the error was from something other than dropping invalid values.
 		if _, ok := err.(prometheus.DroppedValuesError); !ok {
 			//c.httpError(w, err.Error(), http.StatusBadRequest)
-			return points, err
+			return len(reqBuf), points, err
 		}
 	}
-	return points, nil
+	return len(reqBuf), points, nil
 }
 
-func (rt *HTTPRoute) DecodeInflux(w http.ResponseWriter, r *http.Request) (models.Points, error) {
+func (rt *HTTPRoute) DecodeInflux(w http.ResponseWriter, r *http.Request) (int, models.Points, error) {
 
 	var bodyBuf bytes.Buffer
 	_, err := bodyBuf.ReadFrom(r.Body)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	queryParams := r.URL.Query()
 	precision := queryParams.Get("precision")
@@ -369,10 +376,10 @@ func (rt *HTTPRoute) DecodeInflux(w http.ResponseWriter, r *http.Request) (model
 	points, err := models.ParsePointsWithPrecision(bodyBuf.Bytes(), time.Now(), precision)
 	if err != nil {
 		rt.log.Error().Msgf("parse points error: %s", err)
-		return nil, errors.New("Unable to parse points: " + err.Error())
+		return 0, nil, errors.New("Unable to parse points: " + err.Error())
 	}
 
-	return points, nil
+	return bodyBuf.Len(), points, nil
 }
 
 func InfluxEncodePrecision(points models.Points, precision string) (*bytes.Buffer, error) {
@@ -413,24 +420,35 @@ func InfluxEncode(points models.Points) (*bytes.Buffer, error) {
 
 type HTTPRoute struct {
 	cfg        *config.Route
+	DecodeFmt  string
 	Type       string
 	log        *zerolog.Logger
 	filters    []*RouteFilter
 	rules      []*RouteRule
-	DecodeData func(w http.ResponseWriter, r *http.Request) (models.Points, error)
-	//responses  []*responseData
+	DecodeData func(w http.ResponseWriter, r *http.Request) (int, models.Points, error)
 }
 
 func NewHTTPRoute(cfg *config.Route, mode string, l *zerolog.Logger, format string) (*HTTPRoute, error) {
 	rt := &HTTPRoute{Type: mode, log: l}
 
 	rt.cfg = cfg
+
+	//Log output
+	if !cfg.LogInherit {
+		var filename string
+		if len(cfg.LogFile) > 0 {
+			filename = cfg.LogFile
+		} else {
+			filename = logDir + "/http_route_" + cfg.Name + ".log"
+		}
+		rt.log = GetConsoleLogFormated(filename, cfg.LogLevel)
+	}
+
 	for _, f := range cfg.Filter {
 		rf, err := NewRouteFilter(f, rt.log)
 		if err != nil {
 			return rt, err
 		}
-		//rf.SetLogger(rt.log)
 		rt.filters = append(rt.filters, rf)
 	}
 	for _, r := range cfg.Rule {
@@ -438,7 +456,6 @@ func NewHTTPRoute(cfg *config.Route, mode string, l *zerolog.Logger, format stri
 		if err != nil {
 			return rt, err
 		}
-		//rr.SetLogger(rt.log)
 		rt.rules = append(rt.rules, rr)
 	}
 
@@ -450,6 +467,7 @@ func NewHTTPRoute(cfg *config.Route, mode string, l *zerolog.Logger, format stri
 			rt.DecodeData = rt.DecodeInflux
 		}
 	}
+	rt.DecodeFmt = format
 
 	return rt, nil
 }
@@ -481,22 +499,25 @@ func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "text/plain")
 
 	for _, resp := range responses {
-		rt.log.Debug().Msgf("RESPONSE from (CLUSTER:%s|SERVER:%s|LOCATION%s) : HTTP CODE %d content/type  (%s) %s", resp.clusterid, resp.serverid, resp.location, resp.StatusCode, resp.ContentType, string(resp.Body))
+		SetCtxRequestSentParams(r, resp.StatusCode, len(resp.Body))
+		rt.log.Debug().Msgf("RESPONSE from (CLUSTER:%s|SERVER:%s|LOCATION:%s) : HTTP CODE %d content/type  (%s) %s", resp.clusterid, resp.serverid, resp.location, resp.StatusCode, resp.ContentType, string(resp.Body))
 		switch resp.StatusCode / 100 {
 		case 2:
 			// Status accepted means buffering,
 			if resp.StatusCode == http.StatusAccepted {
 				rt.log.Info().Msg("could not reach relay, buffering...")
 				w.WriteHeader(http.StatusAccepted)
+				//SetCtxRequestSentParams(r,http.StatusAccepted,0)
 				return
 			}
-
+			//SetCtxRequestSentParams(r,http.StatusNoContent,0)
 			w.WriteHeader(http.StatusNoContent)
 			return
 
 		case 4:
 			// User error
 			resp.Write(w)
+
 			return
 
 		default:
@@ -508,44 +529,52 @@ func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) 
 	// No successful writes
 	if errResponse == nil {
 		// Failed to make any valid request...
-		jsonResponse(w, response{http.StatusServiceUnavailable, "unable to write points"})
+		jsonResponse(w, r, response{http.StatusServiceUnavailable, "unable to write points"})
 		return
 	}
 }
 
 // TODO: build an only httpError interface for all
-func httpError(w http.ResponseWriter, errmsg string, code int) {
+func httpError(w http.ResponseWriter, r *http.Request, errmsg string, code int) {
 	// Default implementation if the response writer hasn't been replaced
 	// with our special response writer type.
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(code)
 	b, _ := json.Marshal(errmsg)
 	w.Write(b)
+	SetCtxRequestSentParams(r, code, len(b))
 }
 
 func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) {
 
 	if rt.cfg.Level == "data" {
-		points, err := rt.DecodeData(w, r)
-		if err != nil {
+		AppendCxtTracePath(r, "decode", rt.DecodeFmt)
+		size, points, err := rt.DecodeData(w, r)
+		if err != nil && points == nil {
 			rt.log.Error().Msgf("Error in Rule %s when decoding data : %s", rt.cfg.Name, err)
-			httpError(w, err.Error(), http.StatusBadRequest)
+			if points != nil {
+				rt.log.Error().Msgf("ERROR POINTS  DATA %+v", points)
+			}
+
+			httpError(w, r, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		p.Points = points
+		SetCtxRequestSize(r, size, len(points))
 	}
 
 	//R = r + Response handler
-	R := InitRequesetResponse(r)
+	//R := InitRelayContext(r)
 
 	for _, rule := range rt.rules {
-		responses := rule.Process(w, R, start, p)
+		AppendCxtTracePath(r, "rule", rule.cfg.Name)
+		responses := rule.Process(w, r, start, p)
 		for _, resp := range responses {
-			resp.AppendToRequest(R)
+			resp.AppendToRequest(r)
 		}
 
 	}
-	rt.HandleHTTPResponse(w, R)
+	rt.HandleHTTPResponse(w, r)
 
 }

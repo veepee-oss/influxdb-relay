@@ -40,6 +40,7 @@ fi
 
 # Configuration file
 CONFIG=/etc/influxdb-srelay/influxdb-srelay.conf
+LOGDIR=/var/log/influxdb-srelay
 
 # PID file for the daemon
 PIDFILE=/var/run/influxdb-srelay/influxdb-srelay.pid
@@ -128,11 +129,12 @@ function start() {
             --exec $DAEMON \
             -- \
             -config $CONFIG \
+            -logdir $LOGDIR
             $DAEMON_OPTS \
             >>$STDOUT 2>>$STDERR & \
         echo $! > "$PIDFILE"
     else
-        local CMD="$DAEMON -config $CONFIG $DAEMON_OPTS >>$STDOUT 2>>$STDERR & echo \$!"
+        local CMD="$DAEMON -config $CONFIG -logdir $LOGDIR $DAEMON_OPTS >>$STDOUT 2>>$STDERR & echo \$!"
         su -s /bin/sh -c "$CMD" $USER > "$PIDFILE"
     fi
 

@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"golang.org/x/time/rate"
 
-	"context"
 	"net"
 	"net/http"
-	"os"
+
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
@@ -35,8 +33,9 @@ type HTTP struct {
 
 	Endpoints []*HTTPEndPoint
 
-	start time.Time
-	log   *zerolog.Logger
+	start  time.Time
+	log    *zerolog.Logger
+	acclog *zerolog.Logger
 
 	rateLimiter *rate.Limiter
 }
@@ -90,33 +89,11 @@ func NewHTTP(cfg *config.HTTPConfig) (Relay, error) {
 	h.cfg = cfg
 
 	//Log output
-	var i *os.File
-	if len(cfg.LogFile) > 0 {
-		file, _ := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		i = file
-	} else {
-		i = os.Stderr
-	}
 
-	f := log.Output(zerolog.ConsoleWriter{Out: i})
-	h.log = &f
+	h.log = GetConsoleLogFormated(cfg.LogFile, cfg.LogLevel)
+	//AccessLog Output
 
-	switch cfg.LogLevel {
-	case "panic":
-		h.log.WithLevel(zerolog.PanicLevel)
-	case "fatal":
-		h.log.WithLevel(zerolog.FatalLevel)
-	case "Error", "error":
-		h.log.WithLevel(zerolog.ErrorLevel)
-	case "warn", "warning":
-		h.log.WithLevel(zerolog.WarnLevel)
-	case "info":
-		h.log.WithLevel(zerolog.InfoLevel)
-	case "debug":
-		h.log.WithLevel(zerolog.DebugLevel)
-	default:
-		h.log.WithLevel(zerolog.InfoLevel)
-	}
+	h.acclog = GetConsoleLogFormated(cfg.AccessLog, "debug")
 
 	h.cert = cfg.SSLCombinedPem
 	h.rp = cfg.DefaultRetentionPolicy
@@ -203,49 +180,56 @@ func (h *HTTP) Stop() error {
 }
 
 func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Time) {
-	clusterid := r.Context().Value("clusterid")
-	if c, ok := clusters[clusterid.(string)]; ok {
-		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid.(string))
+	clusterid := GetCtxParam(r, "clusterid")
+	//if c, ok := clusters[clusterid.(string)]; ok {
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid)
 		c.HandlePing(w, r, start)
 		return
 	}
-	h.log.Error().Msgf("Handle Ping for cluster Error cluster %s not exist", clusterid.(string))
+	h.log.Error().Msgf("Handle Ping for cluster Error cluster %s not exist", clusterid)
 }
 
 func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.Time) {
-	clusterid := r.Context().Value("clusterid")
-	if c, ok := clusters[clusterid.(string)]; ok {
-		h.log.Info().Msgf("Handle Status for cluster %s", clusterid.(string))
+	clusterid := GetCtxParam(r, "clusterid")
+	//clusterid := r.Context().Value("clusterid")
+	//if c, ok := clusters[clusterid.(string)]; ok {
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle Status for cluster %s", clusterid)
 		c.HandleStatus(w, r, start)
 		return
 	}
-	h.log.Error().Msgf("Handle Status for cluster Error cluster %s not exist", clusterid.(string))
+	h.log.Error().Msgf("Handle Status for cluster Error cluster %s not exist", clusterid)
 }
 
 func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.Time) {
-	clusterid := r.Context().Value("clusterid")
-	if c, ok := clusters[clusterid.(string)]; ok {
-		h.log.Info().Msgf("Handle Health for cluster %s", clusterid.(string))
+	clusterid := GetCtxParam(r, "clusterid")
+	//clusterid := r.Context().Value("clusterid")
+	//if c, ok := clusters[clusterid.(string)]; ok {
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle Health for cluster %s", clusterid)
 		c.HandleHealth(w, r, start)
 		return
 	}
-	h.log.Error().Msgf("Handle Health for cluster Error cluster %s not exist", clusterid.(string))
+	h.log.Error().Msgf("Handle Health for cluster Error cluster %s not exist", clusterid)
 }
 
 func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request, start time.Time) {
-	clusterid := r.Context().Value("clusterid")
-	if c, ok := clusters[clusterid.(string)]; ok {
-		h.log.Info().Msgf("Handle flush for cluster %s", clusterid.(string))
+	//clusterid := r.Context().Value("clusterid")
+	clusterid := GetCtxParam(r, "clusterid")
+	//if c, ok := clusters[clusterid.(string)]; ok {
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle flush for cluster %s", clusterid)
 		c.HandleFlush(w, r, start)
 		return
 	}
-	h.log.Error().Msgf("Handle Flush for cluster Error cluster %s not exist", clusterid.(string))
+	h.log.Error().Msgf("Handle Flush for cluster Error cluster %s not exist", clusterid)
 }
 
 func (h *HTTP) processEndpoint(w http.ResponseWriter, r *http.Request, start time.Time) {
 	// Begin process for
 	for i, endpoint := range h.Endpoints {
-		h.log.Info().Msgf("Procesing [%d][%s] endpoint %+v", i, endpoint.cfg.Type, endpoint.cfg.URI)
+		h.log.Debug().Msgf("Processing [%d][%s] endpoint %+v", i, endpoint.cfg.Type, endpoint.cfg.URI)
 		processed := endpoint.ProcessInput(w, r, start)
 		if processed {
 			break
@@ -258,17 +242,23 @@ var ProcessEndpoint relayHandlerFunc = (*HTTP).processEndpoint
 // ServeHTTP is the function that handles the different route
 // The response is a JSON object describing the state of the operation
 func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// h.start = time.Now()
-	h.log.Debug().Msgf("IN REQUEST:%+v", r)
+
+	R := InitRelayContext(r)
+
+	AppendCxtTracePath(R, "http", h.cfg.Name)
+
+	h.log.Debug().Msgf("IN REQUEST:%+v", R)
 
 	for url, fun := range handlers {
 		if strings.HasPrefix(r.URL.Path, url) {
-			clusterid := strings.TrimPrefix(r.URL.Path, url+"/")
-			ctx := context.WithValue(r.Context(), "clusterid", clusterid)
-			allMiddlewares(h, fun)(h, w, r.WithContext(ctx), time.Now())
+			clusterid := strings.TrimPrefix(R.URL.Path, url+"/")
+			SetCtxParam(R, "clusterid", clusterid)
+
+			allMiddlewares(h, fun)(h, w, R, time.Now())
 			return
 		}
 
 	}
-	allMiddlewares(h, ProcessEndpoint)(h, w, r, time.Now())
+	allMiddlewares(h, ProcessEndpoint)(h, w, R, time.Now())
+	//TODO: process allMiddleware before handlers (most probable /write /read than /admin /health)
 }

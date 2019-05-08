@@ -2,17 +2,17 @@
 
 [Unit]
 Description=InfluxDB-Relay is a service to replicate InfluxDB data for high availability
-Documentation=https://github.com/influxdata/influxdb-relay
+Documentation=https://github.com/influxdata/influxdb-srelay
 After=network.target
 
 [Service]
-User=influxdb-relay
-Group=influxdb-relay
+User=influxdb-srelay
+Group=influxdb-srelay
 LimitNOFILE=65536
-ExecStart=/usr/bin/influxdb-relay -config /etc/influxdb-relay/influxdb-relay.conf
+ExecStart=/usr/bin/influxdb-srelay -config /etc/influxdb-srelay/influxdb-srelay.conf -logdir /var/log/influxdb-srelay/
 KillMode=control-group
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
-Alias=influxdb-relay.service
+Alias=influxdb-srelay.service

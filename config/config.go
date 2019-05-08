@@ -72,20 +72,24 @@ type Filter struct {
 }
 
 type Rule struct {
-	Name      string `toml:"name"`
-	Action    string `toml:"action"`
-	Key       string `toml:"key"`
-	KeyAux    string `toml:"key_aux"`
-	Match     string `toml:"match"`
-	Value     string `toml:"value"`
-	ToCluster string `toml:"to_cluster"`
+	Name           string `toml:"name"`
+	Action         string `toml:"action"`
+	Key            string `toml:"key"`
+	KeyAux         string `toml:"key_aux"`
+	Match          string `toml:"match"`
+	Value          string `toml:"value"`
+	ValueOnUnMatch string `toml:"value_on_unmatch`
+	ToCluster      string `toml:"to_cluster"`
 }
 
 type Route struct {
-	Name   string    `toml:"name"`
-	Level  string    `toml:"level"`
-	Filter []*Filter `toml:"filter"`
-	Rule   []*Rule   `toml:"rule"`
+	Name       string    `toml:"name"`
+	Level      string    `toml:"level"`
+	Filter     []*Filter `toml:"filter"`
+	Rule       []*Rule   `toml:"rule"`
+	LogInherit bool      `toml:"log-inherit"`
+	LogFile    string    `toml:"log-file"`
+	LogLevel   string    `toml:"log-level"`
 }
 
 type Endpoint struct {
@@ -100,6 +104,7 @@ type HTTPConfig struct {
 	BindAddr   string      `toml:"bind-addr"`
 	LogFile    string      `toml:"log-file"`
 	LogLevel   string      `toml:"log-level"`
+	AccessLog  string      `toml:"access-log"`
 	RateLimit  int         `toml:"rate-limit,omitempty"`
 	BurstLimit int         `toml:"burst-limit,omitempty"`
 	Endpoint   []*Endpoint `toml:"endpoint"`

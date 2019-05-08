@@ -1,6 +1,9 @@
 package relay
 
 import (
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"os"
 	"reflect"
 )
 
@@ -14,4 +17,34 @@ func ChanToSlice(ch interface{}) interface{} {
 		}
 		slv = reflect.Append(slv, v)
 	}
+}
+
+func GetConsoleLogFormated(logfile string, level string) *zerolog.Logger {
+	var i *os.File
+	if len(logfile) > 0 {
+		file, _ := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		i = file
+	} else {
+		i = os.Stderr
+	}
+	f := log.Output(zerolog.ConsoleWriter{Out: i, TimeFormat: "2006-01-02 15:04:05"})
+	var logger zerolog.Logger
+	switch level {
+	case "panic":
+		logger = f.Level(zerolog.PanicLevel)
+	case "fatal":
+		logger = f.Level(zerolog.FatalLevel)
+	case "Error", "error":
+		logger = f.Level(zerolog.ErrorLevel)
+	case "warn", "warning":
+		logger = f.Level(zerolog.WarnLevel)
+	case "info":
+		logger = f.Level(zerolog.InfoLevel)
+	case "debug":
+		logger = f.Level(zerolog.DebugLevel)
+	default:
+
+		logger = f.Level(zerolog.InfoLevel)
+	}
+	return &logger
 }

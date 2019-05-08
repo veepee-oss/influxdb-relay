@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 
@@ -80,32 +79,8 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 	c.bufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 
 	//Log output
-	var i *os.File
-	if len(cfg.LogFile) > 0 {
-		file, _ := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		i = file
-	} else {
-		i = os.Stderr
-	}
-	f := log.Output(zerolog.ConsoleWriter{Out: i})
-	c.log = &f
 
-	switch cfg.LogLevel {
-	case "panic":
-		c.log.WithLevel(zerolog.PanicLevel)
-	case "fatal":
-		c.log.WithLevel(zerolog.FatalLevel)
-	case "Error", "error":
-		c.log.WithLevel(zerolog.ErrorLevel)
-	case "warn", "warning":
-		c.log.WithLevel(zerolog.WarnLevel)
-	case "info":
-		c.log.WithLevel(zerolog.InfoLevel)
-	case "debug":
-		c.log.WithLevel(zerolog.DebugLevel)
-	default:
-		c.log.WithLevel(zerolog.InfoLevel)
-	}
+	c.log = GetConsoleLogFormated(cfg.LogFile, cfg.LogLevel)
 
 	switch c.cfg.Type {
 	case "HA":
@@ -137,7 +112,7 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 			log.Error().Msgf("Can not find config for cluster member %s", beName)
 			return c, errors.New("Can not find config for cluster member " + beName)
 		}
-		log.Printf("Config Cluster %s member: %s [%+v]", cfg.Name, beName, becfg)
+		c.log.Debug().Msgf("Config Cluster %s member: %s [%+v]", cfg.Name, beName, becfg)
 
 		backend, err := NewDBBackend(becfg, c.log, c.cfg.Name)
 		if err != nil {
@@ -178,12 +153,12 @@ func (c *Cluster) HandlePing(w http.ResponseWriter, r *http.Request, _ time.Time
 		}
 		w.WriteHeader(c.pingResponseCode)
 	} else {
-		jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+		jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
 		return
 	}
 }
 
-func (c *Cluster) HandleHealth(w http.ResponseWriter, _ *http.Request, _ time.Time) {
+func (c *Cluster) HandleHealth(w http.ResponseWriter, r *http.Request, _ time.Time) {
 	var responses = make(chan health, len(c.backends))
 	var wg sync.WaitGroup
 	var validEndpoints = 0
@@ -251,7 +226,7 @@ func (c *Cluster) HandleHealth(w http.ResponseWriter, _ *http.Request, _ time.Ti
 		report.Status = "healthy"
 	}
 	response := response{code: 200, body: report}
-	jsonResponse(w, response)
+	jsonResponse(w, r, response)
 	return
 }
 
@@ -266,9 +241,9 @@ func (c *Cluster) HandleStatus(w http.ResponseWriter, r *http.Request, _ time.Ti
 
 		j, _ := json.Marshal(st)
 
-		jsonResponse(w, response{http.StatusOK, fmt.Sprintf("\"status\": %s", string(j))})
+		jsonResponse(w, r, response{http.StatusOK, fmt.Sprintf("\"status\": %s", string(j))})
 	} else {
-		jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+		jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
 		return
 	}
 }
@@ -287,7 +262,7 @@ func (c *Cluster) HandleFlush(w http.ResponseWriter, r *http.Request, start time
 		}
 	}
 
-	jsonResponse(w, response{http.StatusOK, http.StatusText(http.StatusOK)})
+	jsonResponse(w, r, response{http.StatusOK, http.StatusText(http.StatusOK)})
 }
 
 func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
@@ -298,7 +273,7 @@ func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
 			return false
 		}
 	}
@@ -307,7 +282,7 @@ func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
 
 	if c.rateLimiter != nil && !c.rateLimiter.Allow() {
 		c.log.Debug().Msgf("Rate Limited => Too Many Request (Limit %+v)(Burst %d) ", c.rateLimiter.Limit(), c.rateLimiter.Burst)
-		jsonResponse(w, response{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)})
+		jsonResponse(w, r, response{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)})
 		return false
 	}
 	return true
@@ -331,6 +306,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 	query := queryParams.Encode()
 
 	outBytes := bodyBuf.Bytes()
+	SetCtxRequestSize(r, bodyBuf.Len(), -1)
 
 	c.log.Info().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
 
@@ -354,6 +330,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 
 func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData {
 
+	AppendCxtTracePath(r, "handleWriteHA", c.cfg.Name)
 	// check if can continue
 
 	cont := c.handleWriteBase(w, r)
@@ -377,6 +354,7 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 
 	var wg sync.WaitGroup
 	wg.Add(len(c.backends))
+	SetCtxRequestSize(r, bodyBuf.Len(), -1)
 
 	var responses = make(chan *responseData, len(c.backends))
 
@@ -409,6 +387,8 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 
 func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
 
+	//AppendCxtTracePath(r, "handleWriteDataSingle", c.cfg.Name)
+
 	b := c.backends[0]
 	resp, err := b.post(data.Bytes(), params.QueryEncode(), params.Header["authorization"], "write")
 	if err != nil {
@@ -423,6 +403,8 @@ func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *InfluxPar
 }
 
 func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
+
+	//AppendCxtTracePath(r, "handleWriteDataHA", c.cfg.Name)
 
 	var wg sync.WaitGroup
 	wg.Add(len(c.backends))
@@ -447,6 +429,7 @@ func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams,
 				if resp.StatusCode/100 == 5 {
 					c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, resp.StatusCode)
 				}
+				c.log.Debug().Msgf("RESPONSE %+v: Body : %s", resp, string(resp.Body))
 				responses <- resp
 			}
 		}()
@@ -531,12 +514,13 @@ func (c *Cluster) getValidQueryBackend() *dbBackend {
 }
 
 func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request, start time.Time) {
+	AppendCxtTracePath(r, "handleQueryHA", c.cfg.Name)
 	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		//w.Header().Set("Allow", http.MethodPost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
 			return
 		}
 	}
@@ -545,12 +529,13 @@ func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request, start ti
 }
 
 func (c *Cluster) handleQuerySingle(w http.ResponseWriter, r *http.Request, start time.Time) {
+	AppendCxtTracePath(r, "handleQuerySingle", c.cfg.Name)
 	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		//w.Header().Set("Allow", http.MethodPost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
 			return
 		}
 	}
@@ -577,8 +562,9 @@ func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, start time
 
 	w.WriteHeader(resp.StatusCode)
 
-	io.Copy(w, resp.Body)
+	length, _ := io.Copy(w, resp.Body)
+	SetCtxRequestSentParams(r, int(resp.StatusCode), int(length))
 
-	c.log.Info().Msgf("IN QUERY HTTP CODE [%d] | Auth(%s) | Query [%s]  Response Time (%s)\n", resp.StatusCode, queryParams.Encode(), authHeader, time.Since(start))
+	//c.log.Info().Msgf("IN QUERY HTTP CODE [%d] | Auth(%s) | Query [%s]  Response Time (%s)\n", resp.StatusCode, queryParams.Encode(), authHeader, time.Since(start))
 
 }

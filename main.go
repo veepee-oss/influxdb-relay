@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	relayVersion = "3.0.1"
+	relayVersion = "0.1.0"
 )
 
 var (
@@ -22,12 +22,13 @@ var (
 	}
 
 	configFile  = flag.String("config", "", "Configuration file to use")
+	logDir      = flag.String("logdir", "./logs", "Default log Directory")
 	verbose     = flag.Bool("v", false, "If set, InfluxDB Relay will log HTTP requests")
 	versionFlag = flag.Bool("version", false, "Print current InfluxDB Relay version")
 )
 
-func runRelay(cfg config.Config) {
-	relay, err := relayservice.New(cfg)
+func runRelay(cfg config.Config, logdir string) {
+	relay, err := relayservice.New(cfg, logdir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,5 +67,5 @@ func main() {
 		log.Println("Version: " + relayVersion)
 		log.Fatal(err.Error())
 	}
-	runRelay(cfg)
+	runRelay(cfg, *logDir)
 }

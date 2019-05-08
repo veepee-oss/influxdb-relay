@@ -52,9 +52,10 @@ func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, er
 }
 
 func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) {
+	//AppendCxtTracePath(r, "endp|READ", e.cfg.URI[0])
 	processed := false
 	for k, router := range e.routes {
-		e.log.Info().Msgf("Processing READ route %d , %s", k, router.cfg.Name)
+		e.log.Debug().Msgf("Processing READ route %d , %s", k, router.cfg.Name)
 		match := router.MatchFilter(p)
 		if match {
 			e.log.Debug().Msgf("Route %s Match!!!!", router.cfg.Name)
@@ -71,14 +72,16 @@ func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start
 }
 
 func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) {
+	//AppendCxtTracePath(r, "endp|WRITE", e.cfg.URI[0])
 	processed := false
 	for k, router := range e.routes {
-		e.log.Info().Msgf("Processing WRITE route %d , %s", k, router.cfg.Name)
+		e.log.Debug().Msgf("Processing WRITE route %d , %s", k, router.cfg.Name)
 		match := router.MatchFilter(p)
 		if match {
 			e.log.Debug().Msgf("Route %s Match!!!!", router.cfg.Name)
 			e.log.Debug().Msgf("Processing WRITE route %d , %+v", k, router)
 			processed = true
+			AppendCxtTracePath(r, "rt", router.cfg.Name)
 			router.ProcessRules(w, r, start, p)
 			break
 		}
@@ -89,6 +92,7 @@ func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, star
 }
 
 func (e *HTTPEndPoint) ProcessInput(w http.ResponseWriter, r *http.Request, start time.Time) bool {
+
 	//check if match uri's
 	found := false
 	uri := ""
@@ -96,6 +100,7 @@ func (e *HTTPEndPoint) ProcessInput(w http.ResponseWriter, r *http.Request, star
 		if r.URL.Path == endpointURI {
 			found = true
 			uri = endpointURI
+			SetCtxEndpoint(r, uri)
 		}
 	}
 	if !found {

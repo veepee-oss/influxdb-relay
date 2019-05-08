@@ -1,5 +1,12 @@
 # influxdb-srelay
 
+
+## Intall from precompiled packages
+
+Debian | RedHat |Docker
+-------|--------|------
+[deb](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay_latest_amd64.deb) - [signature](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay_latest_amd64.deb.sha1)|[rpm](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay-latest.x86_64.rpm) - [signature](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay-latest.x86_64.rpm.sha1)| `docker run -d --name=influxdb-srelay_instance00 -p 9096:9096 -v /mylocal/conf:/opt/influxdb-srelay/conf -v /mylocal/log:/opt/influxdb-srelay/log  tonimoreno/influxdb-srelay`
+
 [![License][license-img]][license-href]
 
 1. [Overview](#overview)
@@ -74,7 +81,7 @@ or
 Docker pull our image.
 
 ```sh
-docker pull vptech/influxdb-srelay:latest
+docker pull tonimoreno/influxdb-srelay:latest
 docker run \
        --volume /path/to/influxdb-srelay.conf:/etc/influxdb-srelay/influxdb-srelay.conf
        --rm

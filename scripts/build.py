@@ -27,7 +27,7 @@ SYSTEMD_SCRIPT = "scripts/influxdb-srelay.service"
 POSTINST_SCRIPT = "scripts/post-install.sh"
 POSTUNINST_SCRIPT = "scripts/post-uninstall.sh"
 LOGROTATE_SCRIPT = "scripts/logrotate"
-DEFAULT_CONFIG = "examples/sample.conf"
+DEFAULT_CONFIG = "examples/sample.influxdb-srelay.conf"
 
 CONFIGURATION_FILES = [
     CONFIG_DIR + '/influxdb-srelay.conf',
@@ -423,6 +423,16 @@ def generate_md5_from_file(path):
             m.update(chunk)
     return m.hexdigest()
 
+def generate_sha1_from_file(path):
+    """Generate MD5 signature based on the contents of the file at path.
+    """
+    m = hashlib.sha1()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            m.update(chunk)
+    return m.hexdigest()
+
+
 def package(build_output, version, nightly=False, iteration=1, static=False, release=False):
     """Package the output of the build process.
     """
@@ -659,8 +669,31 @@ def main(args):
                            release=args.release)
         logging.info("Packages created:")
         for p in packages:
-            logging.info("{} (MD5={})".format(p.split('/')[-1:][0],
-                                              generate_md5_from_file(p)))
+            filename = p.split('/')[-1:][0]
+            filepath = p + ".sha1"
+            sha1 = generate_sha1_from_file(p)
+            file = open(filepath, "w") 
+            file.write(sha1)
+            file.write('\n')
+            file.close() 
+            logging.info("{} (SHA1={})".format(filename,sha1))
+
+        packages = package(build_output,
+                           'latest',
+                           nightly=args.nightly,
+                           iteration=args.iteration,
+                           static=args.static,
+                           release=args.release)
+        logging.info("latest Packages created:")
+        for p in packages:
+            filename = p.split('/')[-1:][0]
+            filepath = p + ".sha1"
+            sha1 = generate_sha1_from_file(p)
+            file = open(filepath, "w") 
+            file.write(sha1)
+            file.write('\n')
+            file.close() 
+            logging.info("{} (SHA1={})".format(filename,sha1))
     if orig_branch != get_current_branch():
         logging.info("Moving back to original git branch: {}".format(orig_branch))
         run("git checkout {}".format(orig_branch))

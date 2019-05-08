@@ -324,6 +324,7 @@ def build(version=None,
           clean=False,
           outdir=".",
           tags=[],
+          race=False,
           static=False):
     """Build each target for the specified architecture and platform.
     """
@@ -382,6 +383,8 @@ def build(version=None,
         build_command += "go build -o {} ".format(os.path.join(outdir, target))
         if len(tags) > 0:
             build_command += "-tags {} ".format(','.join(tags))
+        if race:
+            build_command += "-race "
         if "1.4" in get_go_version():
             if static:
                 build_command += "-ldflags=\"-s -X main.version {} -X main.branch {} -X main.commit {}\" ".format(version,
@@ -570,7 +573,8 @@ def main(args):
     if args.release and args.nightly:
         logging.error("Cannot be both a nightly and a release.")
         return 1
-
+    if args.race:
+        logging.info("building with -race .")
     if args.nightly:
         args.version = increment_minor_version(args.version)
         args.version = "{}~n{}".format(args.version,
@@ -637,6 +641,7 @@ def main(args):
                          clean=args.clean,
                          outdir=od,
                          tags=args.build_tags,
+                         race=args.race,
                          static=args.static):
                 return 1
             build_output.get(platform).update( { arch : od } )
@@ -674,6 +679,7 @@ if __name__ == '__main__':
     parser.add_argument('--verbose','-v','--debug',
                         action='store_true',
                         help='Use debug output')
+
     parser.add_argument('--outdir', '-o',
                         metavar='<output directory>',
                         default='./build/',
@@ -740,6 +746,9 @@ if __name__ == '__main__':
     parser.add_argument('--static',
                         action='store_true',
                         help='Create statically-compiled binary output')
+    parser.add_argument('--race',
+                        action='store_true',
+                        help='Build with -race option')
     args = parser.parse_args()
     print_banner()
     sys.exit(main(args))

@@ -20,9 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-FROM golang:alpine
-
-ENV TZ="Europe/Amsterdam"
+FROM golang:alpine AS build-env
 
 # Add missing git
 RUN apk update && \
@@ -36,11 +34,13 @@ RUN go get -u github.com/toni-moreno/influxdb-srelay && \
     mkdir /etc/influxdb-srelay && \
     touch /etc/influxdb-srelay/influxdb-srelay.conf
 
-# Clean
-RUN rm -fr /go/src/github.com && \
-    apk del git
+FROM alpine:latest
+
+COPY --from=build-env /usr/bin/influxdb-srelay /
+COPY --from=build-env /go/src/github.com/toni-moreno/influxdb-srelay/example/sample.influxdb-srelay.conf /etc/influxdb-srelay/
+RUN mkdir -p /var/log/influxdb-srelay
 
 ENTRYPOINT [ "/usr/bin/influxdb-srelay" ]
 
-CMD [ "-config", "/etc/influxdb-srelay/influxdb-srelay.conf" ]
+CMD [ "-config", "/etc/influxdb-srelay/influxdb-srelay.conf" , "-logdir","/var/log/influxdb-srelay" ]
 # EOF

@@ -54,13 +54,14 @@ Create the configuration file in `/etc/influxdb-srelay`.
 
 ```sh
 mkdir -p /etc/influxdb-srelay
-cp ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay/examples/sample.conf \
+mkdir -p /var/log/influxdb-srelay
+cp ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay/examples/sample.influxdb-srelay.conf \
    /etc/influxdb-srelay/influxdb-srelay.conf
 ```
 
 ### Docker
 
-Build your own image.
+Build your own image need for docker-ce > 17.05 ( or equivalent ee version )
 
 ```sh
 git clone git@github.com:toni-moreno/influxdb-srelay
@@ -85,7 +86,7 @@ docker pull tonimoreno/influxdb-srelay:latest
 docker run \
        --volume /path/to/influxdb-srelay.conf:/etc/influxdb-srelay/influxdb-srelay.conf
        --rm
-       vptech/influxdb-srelay:latest
+       tonimoreno/influxdb-srelay:latest
 ```
 
 ## Usage

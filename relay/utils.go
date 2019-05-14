@@ -4,6 +4,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
+	"path/filepath"
 	"reflect"
 )
 
@@ -22,7 +23,11 @@ func ChanToSlice(ch interface{}) interface{} {
 func GetConsoleLogFormated(logfile string, level string) *zerolog.Logger {
 	var i *os.File
 	if len(logfile) > 0 {
-		file, _ := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		filename := logfile
+		if !filepath.IsAbs(logfile) {
+			filename = filepath.Join(logDir, filename)
+		}
+		file, _ := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		i = file
 	} else {
 		i = os.Stderr

@@ -22,7 +22,7 @@ var (
 	}
 
 	configFile  = flag.String("config", "", "Configuration file to use")
-	logDir      = flag.String("logdir", "./logs", "Default log Directory")
+	logDir      = flag.String("logdir", "", "Default log Directory")
 	verbose     = flag.Bool("v", false, "If set, InfluxDB Relay will log HTTP requests")
 	versionFlag = flag.Bool("version", false, "Print current InfluxDB Relay version")
 )
@@ -46,6 +46,9 @@ func runRelay(cfg config.Config, logdir string) {
 }
 
 func main() {
+
+	var err error
+
 	flag.Usage = usage
 	flag.Parse()
 
@@ -59,6 +62,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Missing configuration file")
 		flag.PrintDefaults()
 		os.Exit(1)
+	}
+
+	if len(*logDir) == 0 {
+		*logDir, err = os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// And it has to be loaded in order to continue

@@ -1,11 +1,14 @@
 package utils
 
 import (
+	"encoding/base64"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 )
 
 var (
@@ -60,4 +63,32 @@ func GetConsoleLogFormated(logfile string, level string) *zerolog.Logger {
 		logger = f.Level(zerolog.InfoLevel)
 	}
 	return &logger
+}
+
+func GetUserFromRequest(r *http.Request) string {
+
+	username := ""
+	found := false
+	//check authorization
+	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+
+	if len(auth) != 2 || auth[0] != "Basic" {
+		found = false
+	} else {
+		payload, _ := base64.StdEncoding.DecodeString(auth[1])
+		pair := strings.SplitN(string(payload), ":", 2)
+		username = pair[0]
+		found = true
+	}
+
+	if !found {
+		queryParams := r.URL.Query()
+		username = queryParams.Get("u")
+	}
+
+	if len(username) > 0 {
+		return username
+	}
+	return "-"
+
 }

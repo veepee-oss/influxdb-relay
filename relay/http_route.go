@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"regexp"
@@ -59,8 +60,8 @@ func (rf *RouteFilter) Match(params *backend.InfluxParams) bool {
 
 type RouteRule struct {
 	cfg     *config.Rule
-	Type    string
-	Level   string
+	Type    config.EndPType
+	Level   config.RouteLevel
 	log     *zerolog.Logger
 	filter  *regexp.Regexp
 	Process func(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) []*backend.ResponseData
@@ -94,12 +95,12 @@ func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, sta
 	}
 	rr.log.Info().Msgf("ROUTE RULE (ACTION: %s): Key %s | Match %s | Value %s | Matched !!!! ", rr.cfg.Name, rr.cfg.Key, rr.cfg.Match, rr.cfg.Value)
 
-	if rr.cfg.Value == "__sinc__" {
+	if rr.cfg.ToCluster == "__sinc__" {
 		rr.log.Info().Msg("Database to Sinc...")
 		return nil
 	}
 
-	if val, ok := clusters[rr.cfg.Value]; ok {
+	if val, ok := clusters[rr.cfg.ToCluster]; ok {
 		//cluster found
 		backend.ReMapRequest(r, params, "notraced")
 		rr.log.Debug().Msgf("REMAPREQUEST PRE VALUES %+v", r.URL.Query())
@@ -151,7 +152,7 @@ func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, sta
 		return nil
 	}
 
-	if val, ok := clusters[rr.cfg.Value]; ok {
+	if val, ok := clusters[rr.cfg.ToCluster]; ok {
 
 		data, err := InfluxEncode(params.Points)
 		if err != nil {
@@ -254,14 +255,24 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 					dbs[dbName] = models.Points{p}
 				}
 
-			} /* else {
+			} else {
+				//not match or not found the tag
+				if len(rr.cfg.ValueOnUnMatch) > 0 {
+					dbName := rr.cfg.ValueOnUnMatch
+					if newpoints, ok := dbs[dbName]; ok {
+						newpoints = append(newpoints, p)
+						dbs[dbName] = newpoints
+					} else {
+						dbs[dbName] = models.Points{p}
+					}
+				}
 				//not match
 				rr.log.Debug().Msgf("Point does not match namespace TAGVALUE %s (Measuerement : %s) TAGS %+v", tagvalue, p.Name(), p.Tags())
-			}*/
+			}
 		}
 
 	case "field":
-		rr.log.Warn().Msgf("Field Rename Not Supported Yet on rule %s", rr.cfg.Name)
+		rr.log.Warn().Msgf("Field Based Route Not Supported Yet on rule %s", rr.cfg.Name)
 
 	default:
 		rr.log.Warn().Msgf("Rename Data key  %d not supported in rule %s", rr.cfg.Key, rr.cfg.Name)
@@ -299,7 +310,7 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
-func NewRouteRule(cfg *config.Rule, mode string, l *zerolog.Logger, routelevel string) (*RouteRule, error) {
+func NewRouteRule(cfg *config.Rule, mode config.EndPType, l *zerolog.Logger, routelevel config.RouteLevel) (*RouteRule, error) {
 	rr := &RouteRule{Type: mode, log: l}
 	rr.cfg = cfg
 	filter, err := regexp.Compile(cfg.Match)
@@ -326,7 +337,7 @@ func NewRouteRule(cfg *config.Rule, mode string, l *zerolog.Logger, routelevel s
 	case "route_db_from_data":
 		rr.Process = rr.ActionRouteDBFromData
 	default:
-		return rr, errors.New("Unknown rule action " + cfg.Action + " on Rule:" + rr.cfg.Name)
+		return rr, fmt.Errorf("Unknown rule action  %s  on Rule: %s", cfg.Action, rr.cfg.Name)
 	}
 
 	return rr, nil
@@ -424,15 +435,15 @@ func InfluxEncode(points models.Points) (*bytes.Buffer, error) {
 
 type HTTPRoute struct {
 	cfg        *config.Route
-	DecodeFmt  string
-	Type       string
+	DecodeFmt  config.EndPSFormat
+	Type       config.EndPType
 	log        *zerolog.Logger
 	filters    []*RouteFilter
 	rules      []*RouteRule
 	DecodeData func(w http.ResponseWriter, r *http.Request) (int, models.Points, error)
 }
 
-func NewHTTPRoute(cfg *config.Route, mode string, l *zerolog.Logger, format string) (*HTTPRoute, error) {
+func NewHTTPRoute(cfg *config.Route, mode config.EndPType, l *zerolog.Logger, format config.EndPSFormat) (*HTTPRoute, error) {
 	rt := &HTTPRoute{Type: mode, log: l}
 
 	rt.cfg = cfg
@@ -550,7 +561,7 @@ func httpError(w http.ResponseWriter, r *http.Request, errmsg string, code int) 
 func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
 
 	if rt.cfg.Level == "data" {
-		relayctx.AppendCxtTracePath(r, "decode", rt.DecodeFmt)
+		relayctx.AppendCxtTracePath(r, "decode", string(rt.DecodeFmt))
 		size, points, err := rt.DecodeData(w, r)
 		if err != nil && points == nil {
 			rt.log.Error().Msgf("Error in Rule %s when decoding data : %s", rt.cfg.Name, err)

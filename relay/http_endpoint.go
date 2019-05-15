@@ -1,7 +1,7 @@
 package relay
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -23,24 +23,24 @@ func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, er
 	e := &HTTPEndPoint{log: l}
 	e.cfg = cfg
 	switch e.cfg.Type {
-	case "RD":
+	case config.EndPType_RD:
 		e.process = e.ProcessRead
-	case "WR":
+	case config.EndPType_WR:
 		e.process = e.ProcessWrite
 	default:
-		err := errors.New("Error on Endpoint type " + e.cfg.Type)
+		err := fmt.Errorf("Error on Endpoint type %s ", e.cfg.Type)
 		e.log.Err(err)
 		return e, err
 	}
 	switch e.cfg.SourceFormat {
-	case "IQL":
+	case config.EndPSFormat_IQL:
 		e.splitParams = backend.SplitParamsIQL
-	case "ILP":
+	case config.EndPSFormat_ILP:
 		e.splitParams = backend.SplitParamsILP
-	case "prom-write":
+	case config.EndPSFormat_promwr:
 		e.splitParams = backend.SplitParamsPRW
 	default:
-		return e, errors.New("Unknown Source Format " + e.cfg.SourceFormat)
+		return e, fmt.Errorf("Unknown Source Format %s ", e.cfg.SourceFormat)
 	}
 	for _, r := range e.cfg.Route {
 		rt, err := NewHTTPRoute(r, cfg.Type, e.log, cfg.SourceFormat)

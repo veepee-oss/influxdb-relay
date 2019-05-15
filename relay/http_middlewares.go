@@ -2,12 +2,13 @@ package relay
 
 import (
 	"compress/gzip"
-	"encoding/base64"
+
 	"net/http"
-	"strings"
+
 	"time"
 
 	"github.com/toni-moreno/influxdb-srelay/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
 func allMiddlewares(h *HTTP, handlerFunc relayHandlerFunc) relayHandlerFunc {
@@ -59,34 +60,6 @@ func (h *HTTP) queryMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 
 }
 
-func GetUserFromRequest(r *http.Request) string {
-
-	username := ""
-	found := false
-	//check authorization
-	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-
-	if len(auth) != 2 || auth[0] != "Basic" {
-		found = false
-	} else {
-		payload, _ := base64.StdEncoding.DecodeString(auth[1])
-		pair := strings.SplitN(string(payload), ":", 2)
-		username = pair[0]
-		found = true
-	}
-
-	if !found {
-		queryParams := r.URL.Query()
-		username = queryParams.Get("u")
-	}
-
-	if len(username) > 0 {
-		return username
-	}
-	return "-"
-
-}
-
 func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time) {
 		h.log.Debug().Msg("----------------------INIT logMiddleWare------------------------")
@@ -103,7 +76,7 @@ func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 			Dur("duration_ms", time.Since(start)).
 			Int("status", rc.SentHTTPStatus).
 			Str("method", r.Method).
-			Str("user", GetUserFromRequest(r)).
+			Str("user", utils.GetUserFromRequest(r)). // <---allready computed from http_params !! REVIEW!!!
 			Str("source", r.RemoteAddr).
 			Str("user-agent", r.UserAgent()).
 			Msg("")

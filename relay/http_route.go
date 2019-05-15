@@ -2,7 +2,6 @@ package relay
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -281,7 +280,6 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 	for db, p := range dbs {
 
 		rr.log.Info().Msgf("processing output for db %s : # %d Points", db, len(p))
-		//rr.log.Debug().Msgf("processing output for db %s : %+v", db, p)
 
 		if val, ok := clusters[rr.cfg.ToCluster]; ok {
 
@@ -547,17 +545,6 @@ func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// TODO: build an only httpError interface for all
-func httpError(w http.ResponseWriter, r *http.Request, errmsg string, code int) {
-	// Default implementation if the response writer hasn't been replaced
-	// with our special response writer type.
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(code)
-	b, _ := json.Marshal(errmsg)
-	w.Write(b)
-	relayctx.SetCtxRequestSentParams(r, code, len(b))
-}
-
 func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
 
 	if rt.cfg.Level == "data" {
@@ -568,8 +555,7 @@ func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start 
 			if points != nil {
 				rt.log.Error().Msgf("ERROR POINTS  DATA %+v", points)
 			}
-
-			httpError(w, r, err.Error(), http.StatusBadRequest)
+			relayctx.JsonResponse(w, r, http.StatusBadRequest, err.Error())
 			return
 		}
 

@@ -69,6 +69,9 @@ func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start
 	}
 	if !processed {
 		e.log.Warn().Msgf("Any Route has processed the enpoint %+v Request:  %+v", e.cfg.URI, r)
+		//default code if not routed
+		// https://docs.influxdata.com/influxdb/v1.7/tools/api/#status-codes-and-responses-1
+		relayctx.JsonResponse(w, r, 400, "No route match on Relay for this query")
 	}
 
 }
@@ -89,6 +92,7 @@ func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, star
 	}
 	if !processed {
 		e.log.Warn().Msgf("Any Route has processed the enpoint %+v Request: %+v", e.cfg.URI, r)
+		relayctx.JsonResponse(w, r, 204, "")
 	}
 }
 

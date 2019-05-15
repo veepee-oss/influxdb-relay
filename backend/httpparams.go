@@ -1,4 +1,4 @@
-package relay
+package backend
 
 import (
 	"net/http"

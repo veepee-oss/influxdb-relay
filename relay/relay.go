@@ -2,6 +2,7 @@ package relay
 
 import (
 	"fmt"
+	"github.com/toni-moreno/influxdb-srelay/cluster"
 	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
@@ -15,7 +16,7 @@ type Relay interface {
 var (
 	mainConfig config.Config
 	logDir     string
-	clusters   map[string]*Cluster
+	clusters   map[string]*cluster.Cluster
 )
 
 func SetConfig(cfg config.Config) {
@@ -28,11 +29,11 @@ func SetLogdir(ld string) {
 
 func InitClusters() error {
 
-	clusters = make(map[string]*Cluster)
+	clusters = make(map[string]*cluster.Cluster)
 
 	for _, cfg := range mainConfig.Influxcluster {
 
-		c, err := NewCluster(cfg)
+		c, err := cluster.NewCluster(cfg)
 		if err != nil {
 			return err
 		}

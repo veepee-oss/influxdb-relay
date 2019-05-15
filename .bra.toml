@@ -1,7 +1,7 @@
 [run]
 init_cmds = [
   ["scripts/build.py","--clean","-v","--race"],
-	["./build/influxdb-srelay", "-v", "-config", "./examples/influxdb-srelay.conf"]
+	["./build/influxdb-srelay", "-v", "-config", "./examples/influxdb-srelay.conf", "-logdir","./logs"]
 ]
 watch_all = true
 watch_dirs = [
@@ -11,5 +11,5 @@ watch_exts = [".go", ".toml",".conf"]
 build_delay = 1500
 cmds = [
   ["scripts/build.py","--clean","-v","--race"],
-	["./build/influxdb-srelay","-v","-config","./examples/influxdb-srelay.conf"]
+	["./build/influxdb-srelay","-v","-config","./examples/influxdb-srelay.conf","-logdir","./logs"]
 ]

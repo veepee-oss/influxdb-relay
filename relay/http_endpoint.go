@@ -6,15 +6,17 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/toni-moreno/influxdb-srelay/backend"
 	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/relayctx"
 )
 
 type HTTPEndPoint struct {
 	cfg         *config.Endpoint
 	log         *zerolog.Logger
 	routes      []*HTTPRoute
-	process     func(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams)
-	splitParams func(r *http.Request) *InfluxParams
+	process     func(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams)
+	splitParams func(r *http.Request) *backend.InfluxParams
 }
 
 func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, error) {
@@ -32,11 +34,11 @@ func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, er
 	}
 	switch e.cfg.SourceFormat {
 	case "IQL":
-		e.splitParams = SplitParamsIQL
+		e.splitParams = backend.SplitParamsIQL
 	case "ILP":
-		e.splitParams = SplitParamsILP
+		e.splitParams = backend.SplitParamsILP
 	case "prom-write":
-		e.splitParams = SplitParamsPRW
+		e.splitParams = backend.SplitParamsPRW
 	default:
 		return e, errors.New("Unknown Source Format " + e.cfg.SourceFormat)
 	}
@@ -51,7 +53,7 @@ func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, er
 	return e, nil
 }
 
-func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) {
+func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
 	//AppendCxtTracePath(r, "endp|READ", e.cfg.URI[0])
 	processed := false
 	for k, router := range e.routes {
@@ -71,7 +73,7 @@ func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start
 
 }
 
-func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) {
+func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
 	//AppendCxtTracePath(r, "endp|WRITE", e.cfg.URI[0])
 	processed := false
 	for k, router := range e.routes {
@@ -81,7 +83,7 @@ func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, star
 			e.log.Debug().Msgf("Route %s Match!!!!", router.cfg.Name)
 			e.log.Debug().Msgf("Processing WRITE route %d , %+v", k, router)
 			processed = true
-			AppendCxtTracePath(r, "rt", router.cfg.Name)
+			relayctx.AppendCxtTracePath(r, "rt", router.cfg.Name)
 			router.ProcessRules(w, r, start, p)
 			break
 		}
@@ -100,7 +102,7 @@ func (e *HTTPEndPoint) ProcessInput(w http.ResponseWriter, r *http.Request, star
 		if r.URL.Path == endpointURI {
 			found = true
 			uri = endpointURI
-			SetCtxEndpoint(r, uri)
+			relayctx.SetCtxEndpoint(r, uri)
 		}
 	}
 	if !found {

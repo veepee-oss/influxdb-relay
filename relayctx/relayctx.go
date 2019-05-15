@@ -1,63 +1,13 @@
-package relay
+package relayctx
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/toni-moreno/influxdb-srelay/backend"
 	"net/http"
-	"strconv"
 )
-
-type response struct {
-	code int
-	body interface{}
-}
-
-type responseData struct {
-	serverid        string
-	clusterid       string
-	location        string
-	ContentType     string
-	ContentEncoding string
-	StatusCode      int
-	Body            []byte
-}
-
-func (rd *responseData) Write(w http.ResponseWriter) {
-	if rd.ContentType != "" {
-		w.Header().Set("Content-Type", rd.ContentType)
-	}
-
-	if rd.ContentEncoding != "" {
-		w.Header().Set("Content-Encoding", rd.ContentEncoding)
-	}
-
-	w.Header().Set("Content-Length", strconv.Itoa(len(rd.Body)))
-	w.WriteHeader(rd.StatusCode)
-	w.Write(rd.Body)
-}
-
-func jsonResponse(w http.ResponseWriter, R *http.Request, r response) {
-
-	data, err := json.Marshal(r.body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	SetCtxRequestSentParams(R, r.code, len(data))
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
-	w.WriteHeader(r.code)
-
-	_, _ = w.Write(data)
-
-}
-
-type RequestResponses struct {
-	responses    []*responseData
-	numResponses int
-}
 
 type RelayRequestCtx struct {
 	//input data from query
@@ -68,7 +18,7 @@ type RelayRequestCtx struct {
 	//Route/Rule/Cluster/Mapping
 	TraceRoute bytes.Buffer
 	//Responses
-	responses    []*responseData
+	responses    []*backend.ResponseData
 	numResponses int
 	//Final HTTP Data Sent
 	SentHTTPStatus int
@@ -87,7 +37,7 @@ func AppendCxtTracePath(r *http.Request, component string, path string) {
 
 func InitRelayContext(r *http.Request) *http.Request {
 	val := make(map[string]string)
-	rc := &RelayRequestCtx{responses: []*responseData{}, in: val}
+	rc := &RelayRequestCtx{responses: []*backend.ResponseData{}, in: val}
 	ctx := context.WithValue(r.Context(), "RelayRequestCtx", rc)
 	return r.WithContext(ctx)
 }
@@ -141,7 +91,7 @@ func GetCtxParam(r *http.Request, key string) string {
 	return ""
 }
 
-func GetResponses(r *http.Request) []*responseData {
+func GetResponses(r *http.Request) []*backend.ResponseData {
 	rc := r.Context().Value("RelayRequestCtx").(*RelayRequestCtx)
 	if rc != nil {
 		return rc.responses
@@ -149,8 +99,23 @@ func GetResponses(r *http.Request) []*responseData {
 	return nil
 }
 
-func (rd *responseData) AppendToRequest(r *http.Request) {
+func AppendToRequest(r *http.Request, rd *backend.ResponseData) {
 	rc := r.Context().Value("RelayRequestCtx").(*RelayRequestCtx)
 	rc.responses = append(rc.responses, rd)
 	rc.numResponses++
+}
+
+func JsonResponse(w http.ResponseWriter, R *http.Request, code int, body interface{}) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	SetCtxRequestSentParams(R, code, len(data))
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
+	w.WriteHeader(code)
+
+	_, _ = w.Write(data)
+
 }

@@ -15,7 +15,11 @@ import (
 	"github.com/golang/snappy"
 	"github.com/influxdata/influxdb/models"
 
+	"github.com/toni-moreno/influxdb-srelay/backend"
 	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/utils"
+
 	"github.com/toni-moreno/influxdb-srelay/prometheus"
 	"github.com/toni-moreno/influxdb-srelay/prometheus/remote"
 )
@@ -37,7 +41,7 @@ func NewRouteFilter(cfg *config.Filter, l *zerolog.Logger) (*RouteFilter, error)
 	return rf, nil
 }
 
-func (rf *RouteFilter) Match(params *InfluxParams) bool {
+func (rf *RouteFilter) Match(params *backend.InfluxParams) bool {
 
 	val, ok := params.Header[rf.cfg.Key]
 	if ok {
@@ -59,10 +63,10 @@ type RouteRule struct {
 	Level   string
 	log     *zerolog.Logger
 	filter  *regexp.Regexp
-	Process func(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) []*responseData
+	Process func(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) []*backend.ResponseData
 }
 
-func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
 
 	val := ""
 	found := false
@@ -97,7 +101,7 @@ func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, sta
 
 	if val, ok := clusters[rr.cfg.Value]; ok {
 		//cluster found
-		ReMapRequest(r, params, "notraced")
+		backend.ReMapRequest(r, params, "notraced")
 		rr.log.Debug().Msgf("REMAPREQUEST PRE VALUES %+v", r.URL.Query())
 		if rr.Type == "WR" {
 			rr.log.Info().Msg("Handle Write.....")
@@ -114,7 +118,7 @@ func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, sta
 
 }
 
-func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
 
 	val := ""
 	found := false
@@ -171,12 +175,12 @@ func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, sta
 
 }
 
-func (rr *RouteRule) ActionPass(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) []*responseData {
+func (rr *RouteRule) ActionPass(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) []*backend.ResponseData {
 	return nil
 }
 
 // RENAME DATA PARAMETERS
-func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
 
 	switch rr.cfg.Key {
 	case "measurement":
@@ -198,11 +202,11 @@ func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, st
 }
 
 // RENAME Influx
-func (rr *RouteRule) ActionRenameDataHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+func (rr *RouteRule) ActionRenameDataHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
 	return nil
 }
 
-func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Request, start time.Time, params *InfluxParams) []*responseData {
+func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
 
 	if rr.Type != "WR" {
 		rr.log.Error().Msgf("Error Wrong type Rule in %s", rr.cfg.Name)
@@ -283,7 +287,7 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 			resp := val.WriteData(w, newParams, data)
 			for _, r := range resp {
 				if r.StatusCode/100 != 2 {
-					rr.log.Error().Msgf("Error in write data to %s : Error: %s ", r.serverid, string(r.Body))
+					rr.log.Error().Msgf("Error in write data to %s : Error: %s ", r.Serverid, string(r.Body))
 				}
 			}
 
@@ -439,9 +443,9 @@ func NewHTTPRoute(cfg *config.Route, mode string, l *zerolog.Logger, format stri
 		if len(cfg.LogFile) > 0 {
 			filename = cfg.LogFile
 		} else {
-			filename = logDir + "/http_route_" + cfg.Name + ".log"
+			filename = "http_route_" + cfg.Name + ".log"
 		}
-		rt.log = GetConsoleLogFormated(filename, cfg.LogLevel)
+		rt.log = utils.GetConsoleLogFormated(filename, cfg.LogLevel)
 	}
 
 	for _, f := range cfg.Filter {
@@ -474,7 +478,7 @@ func NewHTTPRoute(cfg *config.Route, mode string, l *zerolog.Logger, format stri
 
 // return true if any of its condition match
 // c1 or c2 or c3 or c4
-func (rt *HTTPRoute) MatchFilter(params *InfluxParams) bool {
+func (rt *HTTPRoute) MatchFilter(params *backend.InfluxParams) bool {
 	//return tr
 	for _, f := range rt.filters {
 		if f.Match(params) {
@@ -486,9 +490,9 @@ func (rt *HTTPRoute) MatchFilter(params *InfluxParams) bool {
 
 func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) {
 
-	var errResponse *responseData
+	var errResponse *backend.ResponseData
 
-	responses := GetResponses(r)
+	responses := relayctx.GetResponses(r)
 
 	if len(responses) == 0 {
 		rt.log.Info().Msgf("No responses found on request route %s ", rt.cfg.Name)
@@ -499,18 +503,16 @@ func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "text/plain")
 
 	for _, resp := range responses {
-		SetCtxRequestSentParams(r, resp.StatusCode, len(resp.Body))
-		rt.log.Debug().Msgf("RESPONSE from (CLUSTER:%s|SERVER:%s|LOCATION:%s) : HTTP CODE %d content/type  (%s) %s", resp.clusterid, resp.serverid, resp.location, resp.StatusCode, resp.ContentType, string(resp.Body))
+		relayctx.SetCtxRequestSentParams(r, resp.StatusCode, len(resp.Body))
+		rt.log.Debug().Msgf("RESPONSE from (CLUSTER:%s|SERVER:%s|LOCATION:%s) : HTTP CODE %d content/type  (%s) %s", resp.Clusterid, resp.Serverid, resp.Location, resp.StatusCode, resp.ContentType, string(resp.Body))
 		switch resp.StatusCode / 100 {
 		case 2:
 			// Status accepted means buffering,
 			if resp.StatusCode == http.StatusAccepted {
 				rt.log.Info().Msg("could not reach relay, buffering...")
 				w.WriteHeader(http.StatusAccepted)
-				//SetCtxRequestSentParams(r,http.StatusAccepted,0)
 				return
 			}
-			//SetCtxRequestSentParams(r,http.StatusNoContent,0)
 			w.WriteHeader(http.StatusNoContent)
 			return
 
@@ -529,7 +531,7 @@ func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) 
 	// No successful writes
 	if errResponse == nil {
 		// Failed to make any valid request...
-		jsonResponse(w, r, response{http.StatusServiceUnavailable, "unable to write points"})
+		relayctx.JsonResponse(w, r, http.StatusServiceUnavailable, "unable to write points")
 		return
 	}
 }
@@ -542,13 +544,13 @@ func httpError(w http.ResponseWriter, r *http.Request, errmsg string, code int) 
 	w.WriteHeader(code)
 	b, _ := json.Marshal(errmsg)
 	w.Write(b)
-	SetCtxRequestSentParams(r, code, len(b))
+	relayctx.SetCtxRequestSentParams(r, code, len(b))
 }
 
-func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start time.Time, p *InfluxParams) {
+func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
 
 	if rt.cfg.Level == "data" {
-		AppendCxtTracePath(r, "decode", rt.DecodeFmt)
+		relayctx.AppendCxtTracePath(r, "decode", rt.DecodeFmt)
 		size, points, err := rt.DecodeData(w, r)
 		if err != nil && points == nil {
 			rt.log.Error().Msgf("Error in Rule %s when decoding data : %s", rt.cfg.Name, err)
@@ -561,17 +563,17 @@ func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start 
 		}
 
 		p.Points = points
-		SetCtxRequestSize(r, size, len(points))
+		relayctx.SetCtxRequestSize(r, size, len(points))
 	}
 
 	//R = r + Response handler
 	//R := InitRelayContext(r)
 
 	for _, rule := range rt.rules {
-		AppendCxtTracePath(r, "rule", rule.cfg.Name)
+		relayctx.AppendCxtTracePath(r, "rule", rule.cfg.Name)
 		responses := rule.Process(w, r, start, p)
 		for _, resp := range responses {
-			resp.AppendToRequest(r)
+			relayctx.AppendToRequest(r, resp)
 		}
 
 	}

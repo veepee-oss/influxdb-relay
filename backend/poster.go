@@ -1,4 +1,4 @@
-package relay
+package backend
 
 import (
 	"bytes"
@@ -10,9 +10,9 @@ import (
 )
 
 type poster interface {
-	post([]byte, string, string, string) (*responseData, error)
-	query(string, string, string) (*http.Response, error)
-	getStats() map[string]string
+	Post([]byte, string, string, string) (*ResponseData, error)
+	Query(string, string, string) (*http.Response, error)
+	GetStats() map[string]string
 }
 
 type simplePoster struct {
@@ -42,14 +42,14 @@ func newSimplePoster(serverid string, location string, clusterid string, timeout
 	}
 }
 
-func (s *simplePoster) getStats() map[string]string {
+func (s *simplePoster) GetStats() map[string]string {
 	v := make(map[string]string)
 	v["location"] = s.location
 	return v
 }
 
-func (s *simplePoster) post(buf []byte, query string, auth string, endpoint string) (*responseData, error) {
-	ret := &responseData{serverid: s.serverid, clusterid: s.clusterid, location: s.location}
+func (s *simplePoster) Post(buf []byte, query string, auth string, endpoint string) (*ResponseData, error) {
+	ret := &ResponseData{Serverid: s.serverid, Clusterid: s.clusterid, Location: s.location}
 	req, err := http.NewRequest("POST", s.location+endpoint, bytes.NewReader(buf))
 	if err != nil {
 		return ret, err
@@ -80,7 +80,7 @@ func (s *simplePoster) post(buf []byte, query string, auth string, endpoint stri
 	return ret, nil
 }
 
-func (s *simplePoster) query(params string, authHeader string, endpoint string) (*http.Response, error) {
+func (s *simplePoster) Query(params string, authHeader string, endpoint string) (*http.Response, error) {
 
 	req, err := http.NewRequest("GET", s.location+endpoint, nil)
 	if err != nil {

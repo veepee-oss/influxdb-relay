@@ -1,4 +1,4 @@
-package relay
+package cluster
 
 import (
 	"bytes"
@@ -16,7 +16,10 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/toni-moreno/influxdb-srelay/backend"
 	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
 type health struct {
@@ -39,7 +42,7 @@ type Cluster struct {
 
 	closing int64
 
-	backends []*dbBackend
+	backends []*backend.DbBackend
 	log      *zerolog.Logger
 
 	rateLimiter *rate.Limiter
@@ -48,17 +51,14 @@ type Cluster struct {
 
 	queryRouterEndpointAPI []string
 
-	WriteHTTP func(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData
-	WriteData func(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData
+	WriteHTTP func(w http.ResponseWriter, r *http.Request, start time.Time) []*backend.ResponseData
+	WriteData func(w http.ResponseWriter, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData
 	QueryHTTP func(w http.ResponseWriter, r *http.Request, start time.Time)
 
 	bufPool sync.Pool
 }
 
 // Buffer Pool
-
-// ErrBufferFull error indicates that retry buffer is full
-var ErrBufferFull = errors.New("retry buffer full")
 
 func (c *Cluster) getBuf() *bytes.Buffer {
 	if bb, ok := c.bufPool.Get().(*bytes.Buffer); ok {
@@ -80,7 +80,7 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 
 	//Log output
 
-	c.log = GetConsoleLogFormated(cfg.LogFile, cfg.LogLevel)
+	c.log = utils.GetConsoleLogFormated(cfg.LogFile, cfg.LogLevel)
 
 	switch c.cfg.Type {
 	case "HA":
@@ -114,7 +114,7 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 		}
 		c.log.Debug().Msgf("Config Cluster %s member: %s [%+v]", cfg.Name, beName, becfg)
 
-		backend, err := NewDBBackend(becfg, c.log, c.cfg.Name)
+		backend, err := backend.NewDBBackend(becfg, c.log, c.cfg.Name)
 		if err != nil {
 			return c, err
 		}
@@ -122,7 +122,7 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 		c.backends = append(c.backends, backend)
 	}
 
-	c.pingResponseCode = DefaultHTTPPingResponse
+	c.pingResponseCode = backend.DefaultHTTPPingResponse
 	if cfg.DefaultPingResponse != 0 {
 		c.pingResponseCode = cfg.DefaultPingResponse
 	}
@@ -153,7 +153,7 @@ func (c *Cluster) HandlePing(w http.ResponseWriter, r *http.Request, _ time.Time
 		}
 		w.WriteHeader(c.pingResponseCode)
 	} else {
-		jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+		relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 		return
 	}
 }
@@ -171,13 +171,13 @@ func (c *Cluster) HandleHealth(w http.ResponseWriter, r *http.Request, _ time.Ti
 
 		go func() {
 			defer wg.Done()
-			var healthCheck = health{name: b.cfg.Name, err: nil}
+			var healthCheck = health{name: b.Name(), err: nil}
 
 			client := http.Client{
 				Timeout: c.healthTimeout,
 			}
 			start := time.Now()
-			res, err := client.Get(b.cfg.Location + "ping")
+			res, err := client.Get(b.URL("ping"))
 
 			if err != nil {
 
@@ -225,8 +225,8 @@ func (c *Cluster) HandleHealth(w http.ResponseWriter, r *http.Request, _ time.Ti
 	case nbDown == 0:
 		report.Status = "healthy"
 	}
-	response := response{code: 200, body: report}
-	jsonResponse(w, r, response)
+
+	relayctx.JsonResponse(w, r, 200, report)
 	return
 }
 
@@ -236,14 +236,14 @@ func (c *Cluster) HandleStatus(w http.ResponseWriter, r *http.Request, _ time.Ti
 		st := make(map[string]map[string]string)
 
 		for _, b := range c.backends {
-			st[b.cfg.Name] = b.poster.getStats()
+			st[b.Name()] = b.GetStats()
 		}
 
 		j, _ := json.Marshal(st)
 
-		jsonResponse(w, r, response{http.StatusOK, fmt.Sprintf("\"status\": %s", string(j))})
+		relayctx.JsonResponse(w, r, http.StatusOK, fmt.Sprintf("\"status\": %s", string(j)))
 	} else {
-		jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+		relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 		return
 	}
 }
@@ -253,16 +253,16 @@ func (c *Cluster) HandleFlush(w http.ResponseWriter, r *http.Request, start time
 	c.log.Info().Msg("Flushing buffers...")
 
 	for _, b := range c.backends {
-		r := b.getRetryBuffer()
+		r := b.GetRetryBuffer()
 
 		if r != nil {
-			c.log.Info().Msg("Flushing " + b.cfg.Name)
-			c.log.Info().Msg("NOT flushing " + b.cfg.Name + " (is empty)")
-			r.empty()
+			c.log.Info().Msg("Flushing " + b.Name())
+			c.log.Info().Msg("NOT flushing " + b.Name() + " (is empty)")
+			r.Empty()
 		}
 	}
 
-	jsonResponse(w, r, response{http.StatusOK, http.StatusText(http.StatusOK)})
+	relayctx.JsonResponse(w, r, http.StatusOK, http.StatusText(http.StatusOK))
 }
 
 func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
@@ -273,7 +273,7 @@ func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 			return false
 		}
 	}
@@ -282,13 +282,13 @@ func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
 
 	if c.rateLimiter != nil && !c.rateLimiter.Allow() {
 		c.log.Debug().Msgf("Rate Limited => Too Many Request (Limit %+v)(Burst %d) ", c.rateLimiter.Limit(), c.rateLimiter.Burst)
-		jsonResponse(w, r, response{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)})
+		relayctx.JsonResponse(w, r, http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests))
 		return false
 	}
 	return true
 }
 
-func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData {
+func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, start time.Time) []*backend.ResponseData {
 
 	// check if can continue
 
@@ -306,7 +306,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 	query := queryParams.Encode()
 
 	outBytes := bodyBuf.Bytes()
-	SetCtxRequestSize(r, bodyBuf.Len(), -1)
+	relayctx.SetCtxRequestSize(r, bodyBuf.Len(), -1)
 
 	c.log.Info().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
 
@@ -314,23 +314,23 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 	authHeader := r.Header.Get("Authorization")
 
 	b := c.backends[0]
-	resp, err := b.post(outBytes, query, authHeader, "write")
+	resp, err := b.Post(outBytes, query, authHeader, "write")
 	if err != nil {
-		c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, err)
+		c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.Name(), err)
 	} else {
 		if resp.StatusCode/100 == 5 {
-			c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, resp.StatusCode)
+			c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.Name(), resp.StatusCode)
 		}
 	}
 
 	c.putBuf(bodyBuf)
 
-	return []*responseData{resp}
+	return []*backend.ResponseData{resp}
 }
 
-func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start time.Time) []*responseData {
+func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start time.Time) []*backend.ResponseData {
 
-	AppendCxtTracePath(r, "handleWriteHA", c.cfg.Name)
+	relayctx.AppendCxtTracePath(r, "handleWriteHA", c.cfg.Name)
 	// check if can continue
 
 	cont := c.handleWriteBase(w, r)
@@ -354,22 +354,22 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 
 	var wg sync.WaitGroup
 	wg.Add(len(c.backends))
-	SetCtxRequestSize(r, bodyBuf.Len(), -1)
+	relayctx.SetCtxRequestSize(r, bodyBuf.Len(), -1)
 
-	var responses = make(chan *responseData, len(c.backends))
+	var responses = make(chan *backend.ResponseData, len(c.backends))
 
 	for _, b := range c.backends {
 		b := b
 
 		go func() {
 			defer wg.Done()
-			resp, err := b.post(outBytes, query, authHeader, "write")
+			resp, err := b.Post(outBytes, query, authHeader, "write")
 			if err != nil {
-				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, err)
-				responses <- &responseData{}
+				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.Name(), err)
+				responses <- &backend.ResponseData{}
 			} else {
 				if resp.StatusCode/100 == 5 {
-					c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, resp.StatusCode)
+					c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.Name(), resp.StatusCode)
 				}
 				responses <- resp
 			}
@@ -382,34 +382,34 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 		c.putBuf(bodyBuf)
 	}()
 
-	return ChanToSlice(responses).([]*responseData)
+	return utils.ChanToSlice(responses).([]*backend.ResponseData)
 }
 
-func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
+func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData {
 
 	//AppendCxtTracePath(r, "handleWriteDataSingle", c.cfg.Name)
 
 	b := c.backends[0]
-	resp, err := b.post(data.Bytes(), params.QueryEncode(), params.Header["authorization"], "write")
+	resp, err := b.Post(data.Bytes(), params.QueryEncode(), params.Header["authorization"], "write")
 	if err != nil {
-		c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, err)
+		c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.Name(), err)
 	} else {
 		if resp.StatusCode/100 == 5 {
-			c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, resp.StatusCode)
+			c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.Name(), resp.StatusCode)
 		}
 	}
 
-	return []*responseData{resp}
+	return []*backend.ResponseData{resp}
 }
 
-func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams, data *bytes.Buffer) []*responseData {
+func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData {
 
 	//AppendCxtTracePath(r, "handleWriteDataHA", c.cfg.Name)
 
 	var wg sync.WaitGroup
 	wg.Add(len(c.backends))
 
-	var responses = make(chan *responseData, len(c.backends))
+	var responses = make(chan *backend.ResponseData, len(c.backends))
 
 	encode := params.QueryEncode()
 	databytes := data.Bytes()
@@ -420,14 +420,14 @@ func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams,
 
 		go func() {
 			defer wg.Done()
-			c.log.Debug().Msgf("Writing data on %s Data length %d", b.cfg.Name, len(databytes))
-			resp, err := b.post(databytes, encode, auth, "write")
+			c.log.Debug().Msgf("Writing data on %s Data length %d", b.Name(), len(databytes))
+			resp, err := b.Post(databytes, encode, auth, "write")
 			if err != nil {
-				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, err)
-				responses <- &responseData{}
+				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.Name(), err)
+				responses <- &backend.ResponseData{}
 			} else {
 				if resp.StatusCode/100 == 5 {
-					c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.cfg.Name, resp.StatusCode)
+					c.log.Info().Msgf("5xx response for cluster %q backend %q: %v", c.cfg.Name, b.Name(), resp.StatusCode)
 				}
 				c.log.Debug().Msgf("RESPONSE %+v: Body : %s", resp, string(resp.Body))
 				responses <- resp
@@ -440,10 +440,10 @@ func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *InfluxParams,
 		close(responses)
 	}()
 
-	return ChanToSlice(responses).([]*responseData)
+	return utils.ChanToSlice(responses).([]*backend.ResponseData)
 }
 
-func (c *Cluster) getValidQueryBackend() *dbBackend {
+func (c *Cluster) getValidQueryBackend() *backend.DbBackend {
 	nEndp := len(c.queryRouterEndpointAPI)
 	if nEndp == 0 {
 		return c.backends[0]
@@ -498,11 +498,11 @@ func (c *Cluster) getValidQueryBackend() *dbBackend {
 		allEndpoints = append(allEndpoints, r...)
 	}
 
-	var rehttp *dbBackend
+	var rehttp *backend.DbBackend
 
 	if len(allEndpoints) > 0 {
 		for _, b := range c.backends {
-			if b.cfg.Name == allEndpoints[0] {
+			if b.Name() == allEndpoints[0] {
 				rehttp = b
 			}
 		}
@@ -514,13 +514,13 @@ func (c *Cluster) getValidQueryBackend() *dbBackend {
 }
 
 func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request, start time.Time) {
-	AppendCxtTracePath(r, "handleQueryHA", c.cfg.Name)
+	relayctx.AppendCxtTracePath(r, "handleQueryHA", c.cfg.Name)
 	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		//w.Header().Set("Allow", http.MethodPost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 			return
 		}
 	}
@@ -529,13 +529,13 @@ func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request, start ti
 }
 
 func (c *Cluster) handleQuerySingle(w http.ResponseWriter, r *http.Request, start time.Time) {
-	AppendCxtTracePath(r, "handleQuerySingle", c.cfg.Name)
+	relayctx.AppendCxtTracePath(r, "handleQuerySingle", c.cfg.Name)
 	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		//w.Header().Set("Allow", http.MethodPost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			jsonResponse(w, r, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 			return
 		}
 	}
@@ -543,7 +543,7 @@ func (c *Cluster) handleQuerySingle(w http.ResponseWriter, r *http.Request, star
 	c.handleQuery(w, r, start, b)
 }
 
-func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, start time.Time, b *dbBackend) {
+func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, start time.Time, b *backend.DbBackend) {
 
 	queryParams := r.URL.Query()
 	c.log.Debug().Msgf("QUERY PARAMS: %+v	", queryParams)
@@ -551,9 +551,9 @@ func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, start time
 	paramString := queryParams.Encode()
 	authHeader := r.Header.Get("Authorization")
 
-	resp, err := b.query(paramString, authHeader, "query")
+	resp, err := b.Query(paramString, authHeader, "query")
 	if err != nil {
-		c.log.Error().Msgf("Problem posting to cluster %s backend %s: %s", c.cfg.Name, b.cfg.Name, err)
+		c.log.Error().Msgf("Problem posting to cluster %s backend %s: %s", c.cfg.Name, b.Name(), err)
 	}
 
 	for name, values := range resp.Header {
@@ -563,8 +563,6 @@ func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, start time
 	w.WriteHeader(resp.StatusCode)
 
 	length, _ := io.Copy(w, resp.Body)
-	SetCtxRequestSentParams(r, int(resp.StatusCode), int(length))
-
-	//c.log.Info().Msgf("IN QUERY HTTP CODE [%d] | Auth(%s) | Query [%s]  Response Time (%s)\n", resp.StatusCode, queryParams.Encode(), authHeader, time.Since(start))
+	relayctx.SetCtxRequestSentParams(r, int(resp.StatusCode), int(length))
 
 }

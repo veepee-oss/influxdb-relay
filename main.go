@@ -7,8 +7,11 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/toni-moreno/influxdb-srelay/backend"
+	"github.com/toni-moreno/influxdb-srelay/cluster"
 	"github.com/toni-moreno/influxdb-srelay/config"
 	"github.com/toni-moreno/influxdb-srelay/relayservice"
+	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
 const (
@@ -69,6 +72,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+	} else {
+		//check if exist and
+		if _, err := os.Stat(*logDir); os.IsNotExist(err) {
+			os.Mkdir(*logDir, 0755)
+		}
 	}
 
 	// And it has to be loaded in order to continue
@@ -77,5 +85,11 @@ func main() {
 		log.Println("Version: " + relayVersion)
 		log.Fatal(err.Error())
 	}
+	utils.SetLogdir(*logDir)
+	backend.SetLogdir(*logDir)
+	backend.SetConfig(cfg)
+	cluster.SetLogdir(*logDir)
+	cluster.SetConfig(cfg)
+
 	runRelay(cfg, *logDir)
 }

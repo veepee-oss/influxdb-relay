@@ -1,4 +1,4 @@
-package relay
+package backend
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/toni-moreno/influxdb-srelay/config"
 )
 
-type dbBackend struct {
+type DbBackend struct {
 	cfg       *config.InfluxDBBackend
 	clusterid string
 	poster
@@ -18,16 +18,28 @@ type dbBackend struct {
 	admin     string
 }
 
-func (b *dbBackend) getRetryBuffer() *retryBuffer {
+func (b *DbBackend) GetRetryBuffer() *retryBuffer {
 	if p, ok := b.poster.(*retryBuffer); ok {
 		return p
 	}
 	return nil
 }
 
-func NewDBBackend(cfg *config.InfluxDBBackend, l *zerolog.Logger, clustername string) (*dbBackend, error) {
+func (b *DbBackend) Name() string {
+	return b.cfg.Name
+}
 
-	ret := &dbBackend{cfg: cfg, log: l}
+func (b *DbBackend) URL(uri string) string {
+	return b.cfg.Location + uri
+}
+
+/*func (b *DbBackend) GetStats() map[string]string {
+	return b.poster.getStats()
+}*/
+
+func NewDBBackend(cfg *config.InfluxDBBackend, l *zerolog.Logger, clustername string) (*DbBackend, error) {
+
+	ret := &DbBackend{cfg: cfg, log: l}
 
 	// Set a timeout
 	timeout := DefaultHTTPTimeout
@@ -62,7 +74,7 @@ func NewDBBackend(cfg *config.InfluxDBBackend, l *zerolog.Logger, clustername st
 		p = newRetryBuffer(cfg.BufferSizeMB*MB, batch, max, p)
 	}
 
-	/*return &dbBackend{
+	/*return &DbBackend{
 		poster: p,
 	}, nil*/
 	ret.poster = p

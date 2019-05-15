@@ -21,7 +21,7 @@ func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request, _ time.Time) 
 		if r.Method != http.MethodPost {
 			// Bad method
 			w.Header().Set("Allow", http.MethodPost)
-			jsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
+			backend.JsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
 			return
 		}
 
@@ -80,7 +80,7 @@ func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request, _ time.Time) 
 			close(responses)
 		}()
 
-		var errResponse *responseData
+		var errResponse *ResponseData
 		for resp := range responses {
 			switch resp.StatusCode / 100 {
 			case 2:
@@ -101,7 +101,7 @@ func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request, _ time.Time) 
 		// No successful writes
 		if errResponse == nil {
 			// Failed to make any valid request...
-			jsonResponse(w, response{http.StatusServiceUnavailable, "unable to forward query"})
+			backend.JsonResponse(w, response{http.StatusServiceUnavailable, "unable to forward query"})
 			return
 		}
 	*/

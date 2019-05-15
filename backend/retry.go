@@ -1,4 +1,4 @@
-package relay
+package backend
 
 import (
 	"bytes"
@@ -51,7 +51,7 @@ func newRetryBuffer(size, batch int, max time.Duration, p poster) *retryBuffer {
 	return r
 }
 
-func (r *retryBuffer) getStats() map[string]string {
+func (r *retryBuffer) GetStats() map[string]string {
 	stats := make(map[string]string)
 	stats["buffering"] = strconv.FormatInt(int64(r.buffering), 10)
 	for k, v := range r.list.getStats() {
@@ -60,9 +60,9 @@ func (r *retryBuffer) getStats() map[string]string {
 	return stats
 }
 
-func (r *retryBuffer) post(buf []byte, query string, auth string, endpoint string) (*responseData, error) {
+func (r *retryBuffer) Post(buf []byte, query string, auth string, endpoint string) (*ResponseData, error) {
 	if atomic.LoadInt32(&r.buffering) == 0 {
-		resp, err := r.p.post(buf, query, auth, endpoint)
+		resp, err := r.p.Post(buf, query, auth, endpoint)
 		// TODO: A 5xx caused by the point data could cause the relay to buffer forever
 		if err == nil && resp.StatusCode/100 != 5 {
 			return resp, err
@@ -79,10 +79,10 @@ func (r *retryBuffer) post(buf []byte, query string, auth string, endpoint strin
 	// to leave the connection open
 	// The client will receive a 202 which closes the connection and
 	// invites him to send further requests
-	return &responseData{StatusCode: http.StatusAccepted}, err
+	return &ResponseData{StatusCode: http.StatusAccepted}, err
 }
 
-func (r *retryBuffer) query(query string, auth string, endpoint string) (*http.Response, error) {
+func (r *retryBuffer) Query(query string, auth string, endpoint string) (*http.Response, error) {
 	return nil, nil
 }
 
@@ -109,7 +109,7 @@ func (r *retryBuffer) run() {
 				break
 			}
 
-			resp, err := r.p.post(buf.Bytes(), batch.query, batch.auth, batch.endpoint)
+			resp, err := r.p.Post(buf.Bytes(), batch.query, batch.auth, batch.endpoint)
 			if err == nil && resp.StatusCode/100 != 5 {
 				batch.resp = resp
 				atomic.StoreInt32(&r.buffering, 0)
@@ -138,7 +138,7 @@ type batch struct {
 	endpoint string
 
 	wg   sync.WaitGroup
-	resp *responseData
+	resp *ResponseData
 
 	next *batch
 }
@@ -180,7 +180,7 @@ func (l *bufferList) getStats() map[string]string {
 // Empty the buffer to drop any buffered query
 // This allows to flush 'impossible' queries which loop infinitely
 // without having to restart the whole relay
-func (r *retryBuffer) empty() {
+func (r *retryBuffer) Empty() {
 	atomic.StoreInt32(&r.flushing, 1)
 }
 

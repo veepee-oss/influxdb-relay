@@ -1,4 +1,4 @@
-package relay
+package utils
 
 import (
 	"github.com/rs/zerolog"
@@ -7,6 +7,14 @@ import (
 	"path/filepath"
 	"reflect"
 )
+
+var (
+	logDir string
+)
+
+func SetLogdir(ld string) {
+	logDir = ld
+}
 
 func ChanToSlice(ch interface{}) interface{} {
 	chv := reflect.ValueOf(ch)

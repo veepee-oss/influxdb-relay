@@ -2,7 +2,6 @@ package relay
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"golang.org/x/time/rate"
 
@@ -15,6 +14,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
 // HTTP is a relay for HTTP influxdb writes
@@ -40,29 +41,8 @@ type HTTP struct {
 	rateLimiter *rate.Limiter
 }
 
-// httpError writes an error to the client in a standard format.
-func (h *HTTP) httpError(w http.ResponseWriter, errmsg string, code int) {
-	// Default implementation if the response writer hasn't been replaced
-	// with our special response writer type.
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(code)
-	b, _ := json.Marshal(errmsg)
-	w.Write(b)
-}
-
 type relayHandlerFunc func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time)
 type relayMiddleware func(h *HTTP, handlerFunc relayHandlerFunc) relayHandlerFunc
-
-// Default HTTP settings and a few constants
-const (
-	DefaultHTTPPingResponse = http.StatusNoContent
-	DefaultHTTPTimeout      = 10 * time.Second
-	DefaultMaxDelayInterval = 10 * time.Second
-	DefaultBatchSizeKB      = 512
-
-	KB = 1024
-	MB = 1024 * KB
-)
 
 var (
 	handlers = map[string]relayHandlerFunc{
@@ -90,10 +70,10 @@ func NewHTTP(cfg *config.HTTPConfig) (Relay, error) {
 
 	//Log output
 
-	h.log = GetConsoleLogFormated(cfg.LogFile, cfg.LogLevel)
+	h.log = utils.GetConsoleLogFormated(cfg.LogFile, cfg.LogLevel)
 	//AccessLog Output
 
-	h.acclog = GetConsoleLogFormated(cfg.AccessLog, "debug")
+	h.acclog = utils.GetConsoleLogFormated(cfg.AccessLog, "debug")
 
 	h.cert = cfg.SSLCombinedPem
 	h.rp = cfg.DefaultRetentionPolicy
@@ -180,7 +160,7 @@ func (h *HTTP) Stop() error {
 }
 
 func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Time) {
-	clusterid := GetCtxParam(r, "clusterid")
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	//if c, ok := clusters[clusterid.(string)]; ok {
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid)
@@ -191,7 +171,7 @@ func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Tim
 }
 
 func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.Time) {
-	clusterid := GetCtxParam(r, "clusterid")
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	//clusterid := r.Context().Value("clusterid")
 	//if c, ok := clusters[clusterid.(string)]; ok {
 	if c, ok := clusters[clusterid]; ok {
@@ -203,7 +183,7 @@ func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.T
 }
 
 func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.Time) {
-	clusterid := GetCtxParam(r, "clusterid")
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	//clusterid := r.Context().Value("clusterid")
 	//if c, ok := clusters[clusterid.(string)]; ok {
 	if c, ok := clusters[clusterid]; ok {
@@ -216,7 +196,7 @@ func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.T
 
 func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request, start time.Time) {
 	//clusterid := r.Context().Value("clusterid")
-	clusterid := GetCtxParam(r, "clusterid")
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	//if c, ok := clusters[clusterid.(string)]; ok {
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle flush for cluster %s", clusterid)
@@ -243,16 +223,16 @@ var ProcessEndpoint relayHandlerFunc = (*HTTP).processEndpoint
 // The response is a JSON object describing the state of the operation
 func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	R := InitRelayContext(r)
+	R := relayctx.InitRelayContext(r)
 
-	AppendCxtTracePath(R, "http", h.cfg.Name)
+	relayctx.AppendCxtTracePath(R, "http", h.cfg.Name)
 
 	h.log.Debug().Msgf("IN REQUEST:%+v", R)
 
 	for url, fun := range handlers {
 		if strings.HasPrefix(r.URL.Path, url) {
 			clusterid := strings.TrimPrefix(R.URL.Path, url+"/")
-			SetCtxParam(R, "clusterid", clusterid)
+			relayctx.SetCtxParam(R, "clusterid", clusterid)
 
 			allMiddlewares(h, fun)(h, w, R, time.Now())
 			return

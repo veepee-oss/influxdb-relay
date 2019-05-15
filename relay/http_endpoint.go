@@ -74,7 +74,6 @@ func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start
 }
 
 func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
-	//AppendCxtTracePath(r, "endp|WRITE", e.cfg.URI[0])
 	processed := false
 	for k, router := range e.routes {
 		e.log.Debug().Msgf("Processing WRITE route %d , %s", k, router.cfg.Name)

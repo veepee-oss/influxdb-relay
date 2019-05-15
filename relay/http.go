@@ -161,7 +161,6 @@ func (h *HTTP) Stop() error {
 
 func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Time) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
-	//if c, ok := clusters[clusterid.(string)]; ok {
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid)
 		c.HandlePing(w, r, start)
@@ -172,8 +171,6 @@ func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Tim
 
 func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.Time) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
-	//clusterid := r.Context().Value("clusterid")
-	//if c, ok := clusters[clusterid.(string)]; ok {
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Status for cluster %s", clusterid)
 		c.HandleStatus(w, r, start)
@@ -184,8 +181,12 @@ func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.T
 
 func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.Time) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
-	//clusterid := r.Context().Value("clusterid")
-	//if c, ok := clusters[clusterid.(string)]; ok {
+	if len(clusterid) == 0 {
+		h.log.Info().Msgf("Handle Health for the hole process....")
+		//health for the hole process
+		relayctx.JsonResponse(w, r, 200, "OK")
+		return
+	}
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Health for cluster %s", clusterid)
 		c.HandleHealth(w, r, start)
@@ -195,9 +196,9 @@ func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.T
 }
 
 func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request, start time.Time) {
-	//clusterid := r.Context().Value("clusterid")
+
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
-	//if c, ok := clusters[clusterid.(string)]; ok {
+
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle flush for cluster %s", clusterid)
 		c.HandleFlush(w, r, start)
@@ -231,7 +232,14 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	for url, fun := range handlers {
 		if strings.HasPrefix(r.URL.Path, url) {
-			clusterid := strings.TrimPrefix(R.URL.Path, url+"/")
+			var clusterid string
+			if url == R.URL.Path {
+				clusterid = ""
+			} else {
+				clusterid = strings.TrimPrefix(R.URL.Path, url+"/")
+			}
+
+			h.log.Debug().Msgf("handle r.URL.Path for CLUSTERID %s", clusterid)
 			relayctx.SetCtxParam(R, "clusterid", clusterid)
 
 			allMiddlewares(h, fun)(h, w, R, time.Now())

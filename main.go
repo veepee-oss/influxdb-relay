@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	relayVersion = "0.1.0"
+	relayVersion = "0.2.0"
 )
 
 var (
@@ -86,6 +86,7 @@ func main() {
 		log.Fatal(err.Error())
 	}
 	utils.SetLogdir(*logDir)
+	utils.SetVersion(relayVersion)
 	backend.SetLogdir(*logDir)
 	backend.SetConfig(cfg)
 	cluster.SetLogdir(*logDir)

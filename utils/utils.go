@@ -12,11 +12,16 @@ import (
 )
 
 var (
-	logDir string
+	logDir       string
+	relayVersion string
 )
 
 func SetLogdir(ld string) {
 	logDir = ld
+}
+
+func SetVersion(v string) {
+	relayVersion = v
 }
 
 func ChanToSlice(ch interface{}) interface{} {
@@ -91,4 +96,10 @@ func GetUserFromRequest(r *http.Request) string {
 	}
 	return "-"
 
+}
+
+func AddInfluxPingHeaders(w http.ResponseWriter, version string) {
+	w.Header().Add("X-InfluxDB-Version", version)
+	w.Header().Add("X-Influx-SRelay-Version", relayVersion)
+	w.Header().Add("Content-Length", "0")
 }

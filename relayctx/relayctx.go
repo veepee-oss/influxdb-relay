@@ -119,3 +119,8 @@ func JsonResponse(w http.ResponseWriter, R *http.Request, code int, body interfa
 	_, _ = w.Write(data)
 
 }
+
+func VoidResponse(w http.ResponseWriter, R *http.Request, code int) {
+	SetCtxRequestSentParams(R, code, 0)
+	w.WriteHeader(code)
+}

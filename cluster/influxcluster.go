@@ -37,8 +37,8 @@ type healthReport struct {
 type Cluster struct {
 	cfg *config.Influxcluster
 
-	pingResponseCode    int
-	pingResponseHeaders map[string]string
+	pingResponseCode int
+	//pingResponseHeaders map[string]string
 
 	closing int64
 
@@ -127,11 +127,11 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 		c.pingResponseCode = cfg.DefaultPingResponse
 	}
 
-	c.pingResponseHeaders = make(map[string]string)
+	/*c.pingResponseHeaders = make(map[string]string)
 	c.pingResponseHeaders["X-InfluxDB-Version"] = "smart-relay"
 	if c.pingResponseCode != http.StatusNoContent {
 		c.pingResponseHeaders["Content-Length"] = "0"
-	}
+	}*/
 
 	// If a RateLimit is specified, create a new limiter
 	if cfg.RateLimit != 0 {
@@ -148,9 +148,8 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 
 func (c *Cluster) HandlePing(w http.ResponseWriter, r *http.Request, _ time.Time) {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		for key, value := range c.pingResponseHeaders {
-			w.Header().Add(key, value)
-		}
+		//TODO do a real ping over all cluster members
+		utils.AddInfluxPingHeaders(w, "Influx-Smart-Relay")
 		w.WriteHeader(c.pingResponseCode)
 	} else {
 		relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))

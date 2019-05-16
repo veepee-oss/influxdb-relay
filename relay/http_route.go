@@ -66,6 +66,20 @@ type RouteRule struct {
 	Process func(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) []*backend.ResponseData
 }
 
+func (rr *RouteRule) RouteSinc() []*backend.ResponseData {
+	var ret []*backend.ResponseData
+	rr.log.Info().Msg("Database to Sinc...")
+	if rr.Type == "WR" /*and */ {
+		//when /write ok => Code 204 (no content)
+		ret = append(ret, &backend.ResponseData{Serverid: "none", Clusterid: "__sinc__", StatusCode: 204})
+		return ret
+	}
+	//when /query... return response void !!
+	ret = append(ret, &backend.ResponseData{Serverid: "none", Clusterid: "__sinc__", StatusCode: 200})
+	return ret
+
+}
+
 func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
 
 	val := ""
@@ -95,8 +109,7 @@ func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, sta
 	rr.log.Info().Msgf("ROUTE RULE (ACTION: %s): Key %s | Match %s | Value %s | Matched !!!! ", rr.cfg.Name, rr.cfg.Key, rr.cfg.Match, rr.cfg.Value)
 
 	if rr.cfg.ToCluster == "__sinc__" {
-		rr.log.Info().Msg("Database to Sinc...")
-		return nil
+		return rr.RouteSinc()
 	}
 
 	if val, ok := clusters[rr.cfg.ToCluster]; ok {
@@ -104,12 +117,12 @@ func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, sta
 		backend.ReMapRequest(r, params, "notraced")
 		rr.log.Debug().Msgf("REMAPREQUEST PRE VALUES %+v", r.URL.Query())
 		if rr.Type == "WR" {
-			rr.log.Info().Msg("Handle Write.....")
+			rr.log.Debug().Msg("Handle Write.....")
 			return val.WriteHTTP(w, r, start)
 		}
-		rr.log.Info().Msg("Handle Query....")
+		rr.log.Debug().Msg("Handle Query....")
 		val.QueryHTTP(w, r, start)
-		return nil
+		return nil //SURE???
 
 	} else {
 		rr.log.Warn().Msgf("There is no registered cluster %s ", rr.cfg.Value)
@@ -147,8 +160,7 @@ func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, sta
 	rr.log.Info().Msgf("ROUTE RULE (ACTION: %s): Key %s | Match %s | Value %s | Matched !!!! ", rr.cfg.Name, rr.cfg.Key, rr.cfg.Match, rr.cfg.Value)
 
 	if rr.cfg.Value == "__sinc__" {
-		rr.log.Info().Msg("Database to Sinc...")
-		return nil
+		return rr.RouteSinc()
 	}
 
 	if val, ok := clusters[rr.cfg.ToCluster]; ok {
@@ -175,7 +187,13 @@ func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, sta
 
 }
 
-func (rr *RouteRule) ActionPass(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) []*backend.ResponseData {
+func (rr *RouteRule) ActionRenameHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+	rr.log.Warn().Msg("RENAME  HTTP NOT YET SUPPORTED")
+	return nil
+}
+
+func (rr *RouteRule) ActionDropData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+	rr.log.Warn().Msg("DROP DATA NOT YET SUPPORTED")
 	return nil
 }
 
@@ -198,11 +216,6 @@ func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, st
 	default:
 		rr.log.Warn().Msgf("Rename Data key  %d not supported in rule %s", rr.cfg.Key, rr.cfg.Name)
 	}
-	return nil
-}
-
-// RENAME Influx
-func (rr *RouteRule) ActionRenameDataHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
 	return nil
 }
 
@@ -318,22 +331,22 @@ func NewRouteRule(cfg *config.Rule, mode config.EndPType, l *zerolog.Logger, rou
 	rr.filter = filter
 	rr.Level = routelevel
 	switch cfg.Action {
-	case "route":
+	case config.RuleAct_Route:
 		switch routelevel {
-		case "http":
+		case config.RouteLvl_http:
 			rr.Process = rr.ActionRouteHTTP
-		case "data":
+		case config.RouteLvl_data:
 			rr.Process = rr.ActionRouteData
 		default:
 		}
-	case "pass":
-		rr.Process = rr.ActionPass
-	case "rename_data":
+	case config.RuleAct_RenameData:
 		rr.Process = rr.ActionRenameData
-	case "rename_data_http":
-		rr.Process = rr.ActionRenameDataHTTP
-	case "route_db_from_data":
+	case config.RuleAct_RouteDBfData:
 		rr.Process = rr.ActionRouteDBFromData
+	case config.RuleAct_RenameHTTP:
+		rr.Process = rr.ActionRenameHTTP
+	case config.RuleAct_DropData:
+		rr.Process = rr.ActionDropData
 	default:
 		return rr, fmt.Errorf("Unknown rule action  %s  on Rule: %s", cfg.Action, rr.cfg.Name)
 	}

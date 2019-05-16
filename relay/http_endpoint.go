@@ -82,7 +82,7 @@ func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, star
 		e.log.Debug().Msgf("Processing WRITE route %d , %s", k, router.cfg.Name)
 		match := router.MatchFilter(p)
 		if match {
-			e.log.Debug().Msgf("Route %s Match!!!!", router.cfg.Name)
+			e.log.Info().Msgf("Route %s Match!!!!", router.cfg.Name)
 			e.log.Debug().Msgf("Processing WRITE route %d , %+v", k, router)
 			processed = true
 			relayctx.AppendCxtTracePath(r, "rt", router.cfg.Name)

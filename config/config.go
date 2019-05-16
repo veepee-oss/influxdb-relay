@@ -78,12 +78,27 @@ type Influxcluster struct {
 }
 
 func (ic *Influxcluster) ValidateCfg(cfg *Config) error {
+	//Validate type
 	switch ic.Type {
 	case ClType_HA:
+		if len(ic.Members) < 2 {
+			return fmt.Errorf("Error on Cluster %s : on HA clusters members shoud be >= 2", ic.Name)
+		}
 	case ClType_Single:
+		if len(ic.Members) != 1 {
+			return fmt.Errorf("Error on Cluster %s : on Single clusters members shoud be = 1", ic.Name)
+		}
 	case ClType_LB:
+		return fmt.Errorf("SORRY LB Clusters not yet supported", ic.Name)
 	default:
-		return fmt.Errorf("Error in parse Cluster %s: Unknown Type %s", ic.Name, ic.Type)
+		return fmt.Errorf("Error in parse Cluster %s: Unteknown Type %s", ic.Name, ic.Type)
+	}
+	//validate if exist to_cluster
+	for _, m := range ic.Members {
+		bcfg := cfg.GetInfluxDBBackend(m)
+		if bcfg == nil {
+			return fmt.Errorf("Error on Cluster %s : invalid member %s ", ic.Name, m)
+		}
 	}
 	return nil
 }
@@ -194,7 +209,11 @@ func (r *Rule) ValidateCfg(cfg *Config) error {
 	//Validate Action
 	switch r.Action {
 	case RuleAct_Route:
+		fallthrough
 	case RuleAct_RouteDBfData:
+		if len(r.ToCluster) == 0 {
+			return fmt.Errorf("Error in parse Rule %s: Unknown Param to_cluster (should be set)", r.Name)
+		}
 	case RuleAct_RenameHTTP:
 	case RuleAct_RenameData:
 	case RuleAct_DropData:

@@ -13,9 +13,8 @@ type DbBackend struct {
 	cfg       *config.InfluxDBBackend
 	clusterid string
 	poster
-	log       *zerolog.Logger
-	inputType config.Input
-	admin     string
+	log   *zerolog.Logger
+	admin string
 }
 
 func (b *DbBackend) GetRetryBuffer() *retryBuffer {

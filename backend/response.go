@@ -4,6 +4,7 @@ import (
 	//"bytes"
 	//"context"
 
+	"encoding/json"
 	"net/http"
 	"strconv"
 )
@@ -21,6 +22,32 @@ type ResponseData struct {
 	ContentEncoding string
 	StatusCode      int
 	Body            []byte
+}
+
+func (m *ResponseData) MarshalJSON() ([]byte, error) {
+	type Alias ResponseData
+	return json.Marshal(&struct {
+		Body string `json:"Body"`
+		*Alias
+	}{
+		Body:  string(m.Body),
+		Alias: (*Alias)(m),
+	})
+}
+
+func (m *ResponseData) UnmarshalJSON(data []byte) error {
+	type Alias ResponseData
+	aux := &struct {
+		Body string `json:"Body"`
+		*Alias
+	}{
+		Alias: (*Alias)(m),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	m.Body = []byte(aux.Body)
+	return nil
 }
 
 func (rd *ResponseData) Write(w http.ResponseWriter) {

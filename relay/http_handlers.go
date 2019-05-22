@@ -1,109 +1,81 @@
 package relay
 
 import (
+	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/toni-moreno/influxdb-srelay/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
-func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request, _ time.Time) {
-	/*
-		// Client to perform the raw queries
-		client := http.Client{}
+func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
+	if len(clusterid) == 0 {
+		h.log.Info().Msgf("Handle Health for the hole process....")
+		//health for the hole process
+		utils.AddInfluxPingHeaders(w, "Influx-Smart-Relay")
+		relayctx.VoidResponse(w, r, 200)
+		return
+	}
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid)
+		c.HandlePing(w, r, start)
+		return
+	}
+	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
+	h.log.Error().Msgf("Handle Ping for cluster Error cluster %s not exist", clusterid)
+}
 
-		// Base body for all requests
-		baseBody := bytes.Buffer{}
-		_, err := baseBody.ReadFrom(r.Body)
-		if err != nil {
-			log.Printf("relay %q: could not read body: %v", h.Name(), err)
-			return
-		}
+func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle Status for cluster %s", clusterid)
+		c.HandleStatus(w, r, start)
+		return
+	}
+	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
+	h.log.Error().Msgf("Handle Status for cluster Error cluster %s not exist", clusterid)
+}
 
-		if r.Method != http.MethodPost {
-			// Bad method
-			w.Header().Set("Allow", http.MethodPost)
-			backend.JsonResponse(w, response{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)})
-			return
-		}
+func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
+	if len(clusterid) == 0 {
+		h.log.Info().Msgf("Handle Health for the hole process....")
+		//health for the hole process
+		relayctx.JsonResponse(w, r, 200, "OK")
+		return
+	}
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle Health for cluster %s", clusterid)
+		c.HandleHealth(w, r, start)
+		return
+	}
+	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
+	h.log.Error().Msgf("Handle Health for cluster Error cluster %s not exist", clusterid)
+}
 
-		// Responses
-		var responses = make(chan *http.Response, len(h.backends))
+func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request, start time.Time) {
 
-		// Associated waitgroup
-		var wg sync.WaitGroup
-		wg.Add(len(h.backends))
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
 
-		// Iterate over all backends
-		for _, b := range h.backends {
-			b := b
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle flush for cluster %s", clusterid)
+		c.HandleFlush(w, r, start)
+		return
+	}
+	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
+	h.log.Error().Msgf("Handle Flush for cluster Error cluster %s not exist", clusterid)
+}
 
-			go func() {
-				defer wg.Done()
+func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request, start time.Time) {
+	clusterid := relayctx.GetCtxParam(r, "clusterid")
 
-				bodyBytes := baseBody
-
-				// Create new request
-				// Update location according to backend
-				// Forward body
-				req, err := http.NewRequest("POST", b.location+b.endpoints.Query, &bodyBytes)
-				if err != nil {
-					log.Printf("problem posting to relay %q backend %q: could not prepare request: %v", h.Name(), b.name, err)
-					responses <- &http.Response{}
-					return
-				}
-
-				// Forward headers
-				req.Header = r.Header
-
-				// Forward the request
-				resp, err := client.Do(req)
-				if err != nil {
-					// Internal error
-					log.Printf("problem posting to relay %q backend %q: %v", h.Name(), b.name, err)
-
-					// So empty response
-					responses <- &http.Response{}
-				} else {
-					if resp.StatusCode/100 == 5 {
-						// HTTP error
-						log.Printf("5xx response for relay %q backend %q: %v", h.Name(), b.name, resp.StatusCode)
-					}
-
-					// Get response
-					responses <- resp
-				}
-			}()
-		}
-
-		// Wait for requests
-		go func() {
-			wg.Wait()
-			close(responses)
-		}()
-
-		var errResponse *ResponseData
-		for resp := range responses {
-			switch resp.StatusCode / 100 {
-			case 2:
-				w.WriteHeader(http.StatusNoContent)
-				return
-
-			case 4:
-				// User error
-				resp.Write(w)
-				return
-
-			default:
-				// Hold on to one of the responses to return back to the client
-				errResponse = nil
-			}
-		}
-
-		// No successful writes
-		if errResponse == nil {
-			// Failed to make any valid request...
-			backend.JsonResponse(w, response{http.StatusServiceUnavailable, "unable to forward query"})
-			return
-		}
-	*/
-	h.log.Info().Msg("Admin Feature not enabled yet")
+	if c, ok := clusters[clusterid]; ok {
+		h.log.Info().Msgf("Handle Admin for cluster %s", clusterid)
+		c.HandleAdmin(w, r, start)
+		return
+	}
+	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
+	h.log.Error().Msgf("Handle Admin for cluster Error cluster %s not exist", clusterid)
 }

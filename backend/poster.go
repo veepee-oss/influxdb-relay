@@ -10,7 +10,7 @@ import (
 )
 
 type poster interface {
-	Post([]byte, string, string, string) (*ResponseData, error)
+	Post([]byte, string, string, string, string) (*ResponseData, error)
 	Query(string, string, string) (*http.Response, error)
 	GetStats() map[string]string
 }
@@ -48,15 +48,20 @@ func (s *simplePoster) GetStats() map[string]string {
 	return v
 }
 
-func (s *simplePoster) Post(buf []byte, query string, auth string, endpoint string) (*ResponseData, error) {
+func (s *simplePoster) Post(buf []byte, query string, auth string, endpoint string, ctype string) (*ResponseData, error) {
 	ret := &ResponseData{Serverid: s.serverid, Clusterid: s.clusterid, Location: s.location}
 	req, err := http.NewRequest("POST", s.location+endpoint, bytes.NewReader(buf))
 	if err != nil {
 		return ret, err
 	}
 
-	req.URL.RawQuery = query
-	req.Header.Set("Content-Type", "text/plain")
+	req.URL.RawQuery = query //<-Review
+	if len(ctype) > 0 {
+		req.Header.Set("Content-Type", ctype)
+	} else {
+		req.Header.Set("Content-Type", "text/plain")
+	}
+
 	req.Header.Set("Content-Length", strconv.Itoa(len(buf)))
 	if auth != "" {
 		req.Header.Set("Authorization", auth)

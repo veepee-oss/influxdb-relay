@@ -60,9 +60,9 @@ func (r *retryBuffer) GetStats() map[string]string {
 	return stats
 }
 
-func (r *retryBuffer) Post(buf []byte, query string, auth string, endpoint string) (*ResponseData, error) {
+func (r *retryBuffer) Post(buf []byte, query string, auth string, endpoint string, ct string) (*ResponseData, error) {
 	if atomic.LoadInt32(&r.buffering) == 0 {
-		resp, err := r.p.Post(buf, query, auth, endpoint)
+		resp, err := r.p.Post(buf, query, auth, endpoint, ct)
 		// TODO: A 5xx caused by the point data could cause the relay to buffer forever
 		if err == nil && resp.StatusCode/100 != 5 {
 			return resp, err
@@ -109,7 +109,7 @@ func (r *retryBuffer) run() {
 				break
 			}
 
-			resp, err := r.p.Post(buf.Bytes(), batch.query, batch.auth, batch.endpoint)
+			resp, err := r.p.Post(buf.Bytes(), batch.query, batch.auth, batch.endpoint, "text/plain")
 			if err == nil && resp.StatusCode/100 != 5 {
 				batch.resp = resp
 				atomic.StoreInt32(&r.buffering, 0)

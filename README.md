@@ -188,7 +188,7 @@ The status field is a summary of the general state of the backends, the defined 
 * `problem`: some backends but no all of them, return errors
 * `critical`: all backends return an error
 
-#### `/admin/<clusterid>` (work in progress)
+#### `/admin/<clusterid>` 
 
 Whereas data manipulation relies on the `/write` endpoint, some other features
 such as database or user management are based on the `/query` endpoint. As
@@ -196,14 +196,41 @@ InfluxDB SRelay does not send back a response body to the client(s), we are not
 able to forward all of the features this endpoint provides. Still, we decided
 to expose it through the `/admin/<clusterid>` endpoint.
 
-Its usage is the same as the standard `/query` Influx DB endpoint.
+Its usage is the same as the standard `/query` Influx DB endpoint
 
 ```
-curl -X POST "http://127.0.0.1:9096/admin/mycluster" --data-urlencode 'q=CREATE DATABASE some_database'
+curl -i  -XPOST http://localhost:9096/admin/cluster_caas --data-urlencode "q=CREATE DATABASE test_4"
+HTTP/1.1 200 OK
+Content-Length: 580
+Content-Type: application/json
+Date: Wed, 22 May 2019 14:43:17 GMT
+
+{
+	"Msg": "Cluster cluster_caas : Admin Action  q=CREATE%20DATABASE%20test_4: OK",
+	"Responses": [
+		{
+			"Body": "{\"results\":[{}]}",
+			"Serverid": "influxdb01",
+			"Clusterid": "cluster_caas",
+			"Location": "http://127.0.0.1:8086/",
+			"ContentType": "application/json",
+			"ContentEncoding": "",
+			"StatusCode": 200
+		},
+		{
+			"Body": "{\"results\":[{\"statement_id\":0}]}\n",
+			"Serverid": "influxdb02",
+			"Clusterid": "cluster_caas",
+			"Location": "http://127.0.0.1:8087/",
+			"ContentType": "application/json",
+			"ContentEncoding": "",
+			"StatusCode": 200
+		}
+	]
+
 ```
 
-Errors will be logged just like regular `/write` queries. The HTTP response
-bodies will not be forwarded back to the clients.
+Output will show in json format an Msg and and Responses array with response with each backend in the cluster.
 
 #### `/status/<clusterid>` (work in progress)
 

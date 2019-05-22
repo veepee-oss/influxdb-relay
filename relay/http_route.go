@@ -510,6 +510,8 @@ func (rt *HTTPRoute) MatchFilter(params *backend.InfluxParams) bool {
 	return false
 }
 
+//REVIEW : check  response strategy , perhaps we will need a new Route param to set the HTTPResponse Strategy.
+
 func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) {
 
 	var errResponse *backend.ResponseData

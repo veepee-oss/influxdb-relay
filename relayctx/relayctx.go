@@ -106,7 +106,7 @@ func AppendToRequest(r *http.Request, rd *backend.ResponseData) {
 }
 
 func JsonResponse(w http.ResponseWriter, R *http.Request, code int, body interface{}) {
-	data, err := json.Marshal(body)
+	data, err := json.MarshalIndent(body, "", "\t")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -123,4 +123,9 @@ func JsonResponse(w http.ResponseWriter, R *http.Request, code int, body interfa
 func VoidResponse(w http.ResponseWriter, R *http.Request, code int) {
 	SetCtxRequestSentParams(R, code, 0)
 	w.WriteHeader(code)
+}
+
+func WriteResponse(w http.ResponseWriter, R *http.Request, resp *http.Response) {
+	SetCtxRequestSentParams(R, resp.StatusCode, int(resp.ContentLength))
+	resp.Write(w)
 }

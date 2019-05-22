@@ -20,16 +20,14 @@ Debian | RedHat |Docker
 
 ## Overview
 
-Maintained fork of [influxdb-srelay][overview-href] originally developed by
-InfluxData. Replicate InfluxDB data for high availability.
+Maintained fork of [influxdb-relay][overview-href] originally developed by
+InfluxData, with aditions from https://github.com/veepee-moc. Refactored to add advanced data routing, transforamation and filtering.
 
-**Be careful, we have deeply changed the configuration file syntax.**
+**Be careful, we have deeply changed the configuration file syntax from both versions original from influxdata and also from veepep-moc.**
 
 ## Description
 
-This project adds a basic high availability layer to InfluxDB. With the right
-architecture and disaster recovery processes, this achieves a highly available
-setup.
+This project adds an advanced routing layer to any HTTP based InfluxDB queries. 
 
 ## Tested on
 
@@ -91,144 +89,84 @@ docker run \
 
 ## Usage
 
-You can find more documentation in [docs](docs) folder.
 
-* [Architecture](docs/architecture.md)
-* [Buffering](docs/buffering.md)
-* [Caveats](docs/caveats.md)
-* [Recovery](docs/recovery.md)
-* [Filters](docs/filters.md)
-* [Sharding](docs/sharding.md)
+### Architecture
+
+![Architecture](docs/InfluxSmartRelay.png)
+
+Architecture description:
+
+* __DB Backend__: A DB backend is a reference for each one of the OSS influxDB individual instances.
+
+* __InfluxCluster__: a set of `DB Backends` working together and the only way to route http request 
+
+* __HTTP Object__: Is  an HTTP listener waiting for HTTP connections, each HTTP Object listens for user configured `HTTP Endpoints` or also administrative tasks /healh, /ping, /status, /ping
+* __HTTP Endpoint__: User configured endpoint  ( tipicals could be /query or /write for Influxdb 1.X data ),endpoins could be for sending data "WR" or for retrieve data "RD", and has an associated source format (Influx Line Protocol, Influs Query Language, etc). If one query match the user endpoint it begins to check for matching `Routes` in sequential order and only until one route matches, witch will be 
+* __HTTP Route__: An HTTP Route defines the way to handle the incomming HTTP request that matches the enpoint,route only apply if all its `Route Filters` matches , if done it will handle HTTP request data with each `Route Rule` in sequencial order. If all defined `Route Filters`  doesn't match the HTTP request will be evaluated by the next route.
+* __Route Filter__: A way to define a condition over incomming HTTP or DATA parameters, when condition becomes true the route will be matched.
+* __Route Rule__:  A rule is a way to handle incomming query or data. Rules could route over `InfluxClusters`, as many times as you need, or data filtering and/or transformation, there is some rule "types" defineds each one with its way to work, you can see config parameters descritptions on [example config](examples/sample.influxdb-srelay.conf)
+
+
+### Configuration Examples
 
 You can find some configurations in [examples](examples) folder.
 
-* [sample.conf](examples/sample.conf)
-* [sample_buffered.conf](examples/sample_buffered.conf)
-* [kapacitor.conf](examples/kapacitor.conf)
+#### A simple Read-Write HA load balancer
 
-### Configuration
+* [HA sample](examples/rwha-sample.influxdb-srelay.conf)
 
-```toml
-[[http]]
-# Name of the HTTP server, used for display purposes only.
-name = "example-http"
+####  k8s multitenant
 
-# TCP address to bind to, for HTTP server.
-bind-addr = "127.0.0.1:9096"
+The following config enables user separate k8s namespaces labeled metrics on diferent databases with the namespace name. ( Databases  in the backends should be previously created )
 
-# Timeout for /health route
-# After this time, the host may be considered down
-health-timeout-ms = 10000
+* [Prometheus Multitenancy](examples/prom-multitenant.influxdb-srelay.conf)
 
-# Request limiting (Applied to all backend)
-rate-limit = 5
-burst-limit = 10
+#### Complex combination
 
-# Ping response code, default is 204
-default-ping-response = 200
+* [Complex combined](examples/sample.influxdb-srelay.conf)
 
-# Enable HTTPS requests.
-ssl-combined-pem = "/path/to/influxdb-srelay.pem"
 
-# InfluxDB instances to use as backend for Relay
-[[http.output]]
-# name: name of the backend, used for display purposes only.
-name = "local-influxdb01"
+### HTTP Listener Administrative tasks
 
-# location: full URL of the /write endpoint of the backend
-location = "http://127.0.0.1:8086/"
+#### /ping
 
-# endpoints: Routes to use on Relay
-# write: Route for standard InfluxDB request
-# write_prom: Route for Prometheus request
-# ping: Route for ping request
-# query: Route fot querying InfluxDB backends
-endpoints = {write="/write", write_prom="/api/v1/prom/write", ping="/ping", query="/query"}
+This endpoint is a compatible InfluxDB /ping endpoint with ExtraHeaders.
 
-# timeout: Go-parseable time duration. Fail writes if incomplete in this time.
-timeout = "10s"
+````bash
+curl -I  http://localhost:9096/ping
+HTTP/1.1 200 OK
+Content-Length: 0
+X-Influx-Srelay-Version: 0.2.0
+X-Influxdb-Version: Influx-Smart-Relay
+Date: Wed, 22 May 2019 07:27:03 GMT
+````
+####  /ping/<clusterid>
 
-# skip-tls-verification: skip verification for HTTPS location. WARNING: it's insecure. Don't use in production.
-skip-tls-verification = false
+````bash
+#curl -I  http://localhost:9096/ping/mycluster
+HTTP/1.1 204 No Content
+X-Influx-Srelay-Version: 0.2.0
+X-Influxdb-Version: Influx-Smart-Relay
+Date: Wed, 22 May 2019 07:31:39 GMT
+````
 
-# InfluxDB
-[[http.output]]
-name = "local-influxdb02"
-location = "http://127.0.0.1:7086/"
-endpoints = {write="/write", ping="/ping", query="/query"}
-timeout = "10s"
+#### /health
 
-# Prometheus
-[[http.output]]
-name = "local-influxdb03"
-location = "http://127.0.0.1:6086/"
-endpoints = {write="/write", write_prom="/api/v1/prom/write", ping="/ping", query="/query"}
-timeout = "10s"
+This endpoint provides a quick way to check the Listener is working. 
+Use it as health check for external load Balancers
 
-[[http.output]]
-name = "local-influxdb04"
-location = "http://127.0.0.1:5086/"
-endpoints = {write="/write", write_prom="/api/v1/prom/write", ping="/ping", query="/query"}
-timeout = "10s"
+````bash
+# curl -I  http://localhost:9096/health
+HTTP/1.1 200 OK
+Content-Length: 4
+Content-Type: application/json
+Date: Wed, 22 May 2019 07:23:03 GMT
+````
 
-[[udp]]
-# Name of the UDP server, used for display purposes only.
-name = "example-udp"
+#### /health/<clusterid> endpoint
 
-# UDP address to bind to.
-bind-addr = "127.0.0.1:9096"
-
-# Socket buffer size for incoming connections.
-read-buffer = 0 # default
-
-# Precision to use for timestamps
-precision = "n" # Can be n, u, ms, s, m, h
-
-# InfluxDB instance to use as backend for Relay.
-[[udp.output]]
-# name: name of the backend, used for display purposes only.
-name = "local-influxdb01"
-
-# location: host and port of backend.
-location = "127.0.0.1:8089"
-
-# mtu: maximum output payload size
-mtu = 512
-
-[[udp.output]]
-name = "local-influxdb02"
-location = "127.0.0.1:7089"
-mtu = 1024
-```
-
-InfluxDB Relay is able to forward from a variety of input sources, including:
-
-* `influxdb`
-* `prometheus`
-
-### Administrative tasks
-
-#### /admin endpoint
-
-Whereas data manipulation relies on the `/write` endpoint, some other features
-such as database or user management are based on the `/query` endpoint. As
-InfluxDB Relay does not send back a response body to the client(s), we are not
-able to forward all of the features this endpoint provides. Still, we decided
-to expose it through the `/admin` route.
-
-It is now possible to query the `/admin` endpoint. Its usage is the same as the
-standard `/query` Influx DB enpoint:
-
-```
-curl -X POST "http://127.0.0.1:9096/admin" --data-urlencode 'q=CREATE DATABASE some_database'
-```
-
-Errors will be logged just like regular `/write` queries. The HTTP response
-bodies will not be forwarded back to the clients.
-
-#### /health endpoint
-
-This endpoint provides a quick way to check the state of all the backends.
+This endpoint provides a quick way to check the state of all the backends for the 
+selected cluster with its clusterid.
 It will return a JSON object detailing the status of the backends like this : 
 
 ```json
@@ -251,10 +189,27 @@ The status field is a summary of the general state of the backends, the defined 
 * `problem`: some backends, but no all of them, returned errors
 * `critical`: every backend returned an error
 
-### Filters
+#### /admin/<clusterid> endpoint (work in progress)
 
-We allow tags and measurements filtering through regular expressions. Please,
-take a look at [this document](docs/filters.md) for more information.
+Whereas data manipulation relies on the `/write` endpoint, some other features
+such as database or user management are based on the `/query` endpoint. As
+InfluxDB Relay does not send back a response body to the client(s), we are not
+able to forward all of the features this endpoint provides. Still, we decided
+to expose it through the `/admin/<clusterid>` route.
+
+It is now possible to query the `/admin/<clusterid>` endpoint. Its usage is the same as the
+standard `/query` Influx DB enpoint but 
+
+```
+curl -X POST "http://127.0.0.1:9096/admin/mycluster" --data-urlencode 'q=CREATE DATABASE some_database'
+```
+
+Errors will be logged just like regular `/write` queries. The HTTP response
+bodies will not be forwarded back to the clients.
+
+#### /status/<clusterid> (Work in progress)
+
+This endpoint provides a quick way to get InfluxCluster Backends Data and statistics.(work in progress...) 
 
 ## Limitations
 
@@ -282,17 +237,8 @@ go build -a -ldflags '-extldflags "-static"' -o influxdb-srelay
 
 ## Miscellaneous
 
-```
-    ╚⊙ ⊙╝
-  ╚═(███)═╝
- ╚═(███)═╝
-╚═(███)═╝
- ╚═(███)═╝
-  ╚═(███)═╝
-   ╚═(███)═╝
-```
 
 [license-img]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-href]: LICENSE
-[overview-href]: https://github.com/influxdata/influxdb-srelay
+[overview-href]: https://github.com/influxdata/influxdb-relay
 [contribute-href]: CONTRIBUTING.md

@@ -140,18 +140,6 @@ type AdminResult struct {
 
 func (c *Cluster) HandleAdmin(w http.ResponseWriter, r *http.Request, _ time.Time) {
 
-	// Client to perform the raw queries
-	//client := http.Client{}
-
-	// Base body for all requests
-	/*baseBody := bytes.Buffer{}
-	_, err := baseBody.ReadFrom(r.Body)
-	if err != nil {
-		c.log.Warn().Msgf("relay %q: could not read body: %v", c.cfg.Name, err)
-		relayctx.JsonResponse(w, r, http.StatusBadRequest, "Could not read body from Request")
-		return
-	}*/
-
 	if r.Method != http.MethodPost {
 		// Bad method
 		w.Header().Set("Allow", http.MethodPost)
@@ -164,7 +152,7 @@ func (c *Cluster) HandleAdmin(w http.ResponseWriter, r *http.Request, _ time.Tim
 	queryParams := r.URL.Query()
 	query := queryParams.Encode()
 	authHeader := r.Header.Get("Authorization")
-	//outBytes := bodyBuf.Bytes()
+
 	// Responses
 	var responses = make(chan *backend.ResponseData, len(c.backends))
 
@@ -179,7 +167,7 @@ func (c *Cluster) HandleAdmin(w http.ResponseWriter, r *http.Request, _ time.Tim
 
 		go func() {
 			defer wg.Done()
-			//var void []byte
+
 			resp, err := b.Post(bodyBuf.Bytes(), query, authHeader, "query", "application/x-www-form-urlencoded")
 			if err != nil {
 				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.Name(), err)
@@ -206,14 +194,9 @@ func (c *Cluster) HandleAdmin(w http.ResponseWriter, r *http.Request, _ time.Tim
 		adminresp.Responses = append(adminresp.Responses, resp)
 		c.log.Debug().Msgf("Responses %+v", resp)
 		switch resp.StatusCode / 100 {
-		/*case 2:
-		//w.WriteHeader(http.StatusNoContent)
-		relayctx.VoidResponse(w, r, http.StatusNoContent)
-		return*/
 
 		case 4, 5:
 			// User error
-			//resp.Write(w)
 			errResponse = resp
 			break
 

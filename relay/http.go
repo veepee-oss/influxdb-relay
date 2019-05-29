@@ -41,7 +41,7 @@ type HTTP struct {
 	rateLimiter *rate.Limiter
 }
 
-type relayHandlerFunc func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time)
+type relayHandlerFunc func(h *HTTP, w http.ResponseWriter, r *http.Request)
 type relayMiddleware func(h *HTTP, handlerFunc relayHandlerFunc) relayHandlerFunc
 
 var (
@@ -160,11 +160,11 @@ func (h *HTTP) Stop() error {
 	return h.l.Close()
 }
 
-func (h *HTTP) processEndpoint(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (h *HTTP) processEndpoint(w http.ResponseWriter, r *http.Request) {
 	// Begin process for
 	for i, endpoint := range h.Endpoints {
 		h.log.Debug().Msgf("Processing [%d][%s] endpoint %+v", i, endpoint.cfg.Type, endpoint.cfg.URI)
-		processed := endpoint.ProcessInput(w, r, start)
+		processed := endpoint.ProcessInput(w, r)
 		if processed {
 			break
 		}
@@ -183,7 +183,7 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	h.log.Debug().Msgf("IN REQUEST:%+v", R)
 	//first we will try to process user EndPoints
-	allMiddlewares(h, ProcessEndpoint)(h, w, R, time.Now())
+	allMiddlewares(h, ProcessEndpoint)(h, w, R)
 	//if not served we will process the amdin EndPoints
 	served := relayctx.GetServed(R)
 	if !served {
@@ -200,7 +200,7 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				h.log.Debug().Msgf("handle r.URL.Path for CLUSTERID %s", clusterid)
 				relayctx.SetCtxParam(R, "clusterid", clusterid)
 
-				allMiddlewares(h, fun)(h, w, R, time.Now())
+				allMiddlewares(h, fun)(h, w, R)
 				return
 			}
 

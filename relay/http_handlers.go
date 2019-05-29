@@ -3,13 +3,12 @@ package relay
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/toni-moreno/influxdb-srelay/relayctx"
 	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
-func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	if len(clusterid) == 0 {
 		h.log.Info().Msgf("Handle Health for the hole process....")
@@ -20,25 +19,25 @@ func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request, start time.Tim
 	}
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid)
-		c.HandlePing(w, r, start)
+		c.HandlePing(w, r)
 		return
 	}
 	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
 	h.log.Error().Msgf("Handle Ping for cluster Error cluster %s not exist", clusterid)
 }
 
-func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Status for cluster %s", clusterid)
-		c.HandleStatus(w, r, start)
+		c.HandleStatus(w, r)
 		return
 	}
 	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
 	h.log.Error().Msgf("Handle Status for cluster Error cluster %s not exist", clusterid)
 }
 
-func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	if len(clusterid) == 0 {
 		h.log.Info().Msgf("Handle Health for the hole process....")
@@ -48,32 +47,32 @@ func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request, start time.T
 	}
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Health for cluster %s", clusterid)
-		c.HandleHealth(w, r, start)
+		c.HandleHealth(w, r)
 		return
 	}
 	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
 	h.log.Error().Msgf("Handle Health for cluster Error cluster %s not exist", clusterid)
 }
 
-func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request) {
 
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
 
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle flush for cluster %s", clusterid)
-		c.HandleFlush(w, r, start)
+		c.HandleFlush(w, r)
 		return
 	}
 	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))
 	h.log.Error().Msgf("Handle Flush for cluster Error cluster %s not exist", clusterid)
 }
 
-func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
 
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Admin for cluster %s", clusterid)
-		c.HandleAdmin(w, r, start)
+		c.HandleAdmin(w, r)
 		return
 	}
 	relayctx.JsonResponse(w, r, 400, fmt.Sprintf("cluster %s not exist in  config", clusterid))

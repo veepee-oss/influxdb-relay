@@ -50,9 +50,9 @@ type Cluster struct {
 
 	queryRouterEndpointAPI []string
 
-	WriteHTTP func(w http.ResponseWriter, r *http.Request, start time.Time) []*backend.ResponseData
+	WriteHTTP func(w http.ResponseWriter, r *http.Request) []*backend.ResponseData
 	WriteData func(w http.ResponseWriter, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData
-	QueryHTTP func(w http.ResponseWriter, r *http.Request, start time.Time)
+	QueryHTTP func(w http.ResponseWriter, r *http.Request)
 
 	bufPool sync.Pool
 }
@@ -168,7 +168,7 @@ func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, start time.Time) []*backend.ResponseData {
+func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request) []*backend.ResponseData {
 
 	// check if can continue
 
@@ -208,7 +208,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 	return []*backend.ResponseData{resp}
 }
 
-func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start time.Time) []*backend.ResponseData {
+func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request) []*backend.ResponseData {
 
 	relayctx.AppendCxtTracePath(r, "handleWriteHA", c.cfg.Name)
 	// check if can continue
@@ -393,7 +393,7 @@ func (c *Cluster) getValidQueryBackend() *backend.DbBackend {
 	return rehttp
 }
 
-func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request) {
 	relayctx.AppendCxtTracePath(r, "handleQueryHA", c.cfg.Name)
 	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		//w.Header().Set("Allow", http.MethodPost)
@@ -405,10 +405,10 @@ func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request, start ti
 		}
 	}
 	b := c.getValidQueryBackend()
-	c.handleQuery(w, r, start, b)
+	c.handleQuery(w, r, b)
 }
 
-func (c *Cluster) handleQuerySingle(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (c *Cluster) handleQuerySingle(w http.ResponseWriter, r *http.Request) {
 	relayctx.AppendCxtTracePath(r, "handleQuerySingle", c.cfg.Name)
 	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		//w.Header().Set("Allow", http.MethodPost)
@@ -420,10 +420,10 @@ func (c *Cluster) handleQuerySingle(w http.ResponseWriter, r *http.Request, star
 		}
 	}
 	b := c.backends[0]
-	c.handleQuery(w, r, start, b)
+	c.handleQuery(w, r, b)
 }
 
-func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, start time.Time, b *backend.DbBackend) {
+func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, b *backend.DbBackend) {
 
 	queryParams := r.URL.Query()
 	c.log.Debug().Msgf("QUERY PARAMS: %+v	", queryParams)

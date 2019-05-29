@@ -20,7 +20,7 @@ func allMiddlewares(h *HTTP, handlerFunc relayHandlerFunc) relayHandlerFunc {
 }
 
 func (h *HTTP) bodyMiddleWare(next relayHandlerFunc) relayHandlerFunc {
-	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time) {
+	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request) {
 		h.log.Debug().Msg("----------------------INIT bodyMiddleWare------------------------")
 		var body = r.Body
 		if r.Header.Get("Content-Encoding") == "gzip" {
@@ -34,13 +34,13 @@ func (h *HTTP) bodyMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 		}
 
 		r.Body = body
-		next(h, w, r, start)
+		next(h, w, r)
 		h.log.Debug().Msg("----------------------END bodyMiddleWare------------------------")
 	})
 }
 
 func (h *HTTP) queryMiddleWare(next relayHandlerFunc) relayHandlerFunc {
-	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time) {
+	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request) {
 		h.log.Debug().Msg("----------------------INIT queryMiddleWare------------------------")
 		queryParams := r.URL.Query()
 
@@ -54,16 +54,16 @@ func (h *HTTP) queryMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 		}
 
 		r.URL.RawQuery = queryParams.Encode()
-		next(h, w, r, start)
+		next(h, w, r)
 		h.log.Debug().Msg("----------------------END queryMiddleWare------------------------")
 	})
 
 }
 
 func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
-	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time) {
+	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request) {
 		h.log.Debug().Msg("----------------------INIT logMiddleWare------------------------")
-		next(h, w, r, start)
+		next(h, w, r)
 		rc := relayctx.GetRelayContext(r)
 
 		h.acclog.Info().
@@ -85,7 +85,7 @@ func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 }
 
 func (h *HTTP) rateMiddleware(next relayHandlerFunc) relayHandlerFunc {
-	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request, start time.Time) {
+	return relayHandlerFunc(func(h *HTTP, w http.ResponseWriter, r *http.Request) {
 		h.log.Debug().Msg("----------------------INIT rateMiddleware-----------------------")
 		if h.rateLimiter != nil && !h.rateLimiter.Allow() {
 			h.log.Debug().Msgf("Rate Limited => Too Many Request (Limit %+v)(Burst %d) ", h.rateLimiter.Limit(), h.rateLimiter.Burst)
@@ -93,7 +93,7 @@ func (h *HTTP) rateMiddleware(next relayHandlerFunc) relayHandlerFunc {
 			return
 		}
 
-		next(h, w, r, start)
+		next(h, w, r)
 		h.log.Debug().Msg("----------------------END rateMiddleware-----------------------")
 	})
 }

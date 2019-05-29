@@ -15,7 +15,7 @@ import (
 	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
-func (c *Cluster) HandlePing(w http.ResponseWriter, r *http.Request, _ time.Time) {
+func (c *Cluster) HandlePing(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		//TODO do a real ping over all cluster members
 		utils.AddInfluxPingHeaders(w, "Influx-Smart-Relay")
@@ -26,7 +26,7 @@ func (c *Cluster) HandlePing(w http.ResponseWriter, r *http.Request, _ time.Time
 	}
 }
 
-func (c *Cluster) HandleHealth(w http.ResponseWriter, r *http.Request, _ time.Time) {
+func (c *Cluster) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	var responses = make(chan health, len(c.backends))
 	var wg sync.WaitGroup
 	var validEndpoints = 0
@@ -98,7 +98,7 @@ func (c *Cluster) HandleHealth(w http.ResponseWriter, r *http.Request, _ time.Ti
 	return
 }
 
-func (c *Cluster) HandleStatus(w http.ResponseWriter, r *http.Request, _ time.Time) {
+func (c *Cluster) HandleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		// old but gold
 		st := make(map[string]map[string]string)
@@ -116,7 +116,7 @@ func (c *Cluster) HandleStatus(w http.ResponseWriter, r *http.Request, _ time.Ti
 	}
 }
 
-func (c *Cluster) HandleFlush(w http.ResponseWriter, r *http.Request, start time.Time) {
+func (c *Cluster) HandleFlush(w http.ResponseWriter, r *http.Request) {
 
 	c.log.Info().Msg("Flushing buffers...")
 
@@ -138,7 +138,7 @@ type AdminResult struct {
 	Responses []*backend.ResponseData
 }
 
-func (c *Cluster) HandleAdmin(w http.ResponseWriter, r *http.Request, _ time.Time) {
+func (c *Cluster) HandleAdmin(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		// Bad method

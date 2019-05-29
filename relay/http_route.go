@@ -63,7 +63,7 @@ type RouteRule struct {
 	Level   config.RouteLevel
 	log     *zerolog.Logger
 	filter  *regexp.Regexp
-	Process func(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) []*backend.ResponseData
+	Process func(w http.ResponseWriter, r *http.Request, p *backend.InfluxParams) []*backend.ResponseData
 }
 
 func (rr *RouteRule) RouteSinc() []*backend.ResponseData {
@@ -80,7 +80,7 @@ func (rr *RouteRule) RouteSinc() []*backend.ResponseData {
 
 }
 
-func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams) []*backend.ResponseData {
 
 	val := ""
 	found := false
@@ -118,10 +118,10 @@ func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, sta
 		rr.log.Debug().Msgf("REMAPREQUEST PRE VALUES %+v", r.URL.Query())
 		if rr.Type == "WR" {
 			rr.log.Debug().Msg("Handle Write.....")
-			return val.WriteHTTP(w, r, start)
+			return val.WriteHTTP(w, r)
 		}
 		rr.log.Debug().Msg("Handle Query....")
-		val.QueryHTTP(w, r, start)
+		val.QueryHTTP(w, r)
 		return nil //SURE???
 
 	} else {
@@ -131,7 +131,7 @@ func (rr *RouteRule) ActionRouteHTTP(w http.ResponseWriter, r *http.Request, sta
 
 }
 
-func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams) []*backend.ResponseData {
 
 	val := ""
 	found := false
@@ -177,7 +177,7 @@ func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, sta
 			return val.WriteData(w, newParams, data)
 		}
 		rr.log.Info().Msg("Handle Query....")
-		val.QueryHTTP(w, r, start)
+		val.QueryHTTP(w, r)
 		return nil
 
 	} else {
@@ -187,18 +187,18 @@ func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, sta
 
 }
 
-func (rr *RouteRule) ActionRenameHTTP(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+func (rr *RouteRule) ActionRenameHTTP(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams) []*backend.ResponseData {
 	rr.log.Warn().Msg("RENAME  HTTP NOT YET SUPPORTED")
 	return nil
 }
 
-func (rr *RouteRule) ActionDropData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+func (rr *RouteRule) ActionDropData(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams) []*backend.ResponseData {
 	rr.log.Warn().Msg("DROP DATA NOT YET SUPPORTED")
 	return nil
 }
 
 // RENAME DATA PARAMETERS
-func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams) []*backend.ResponseData {
 
 	switch rr.cfg.Key {
 	case "measurement":
@@ -223,7 +223,7 @@ func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, st
 	return nil
 }
 
-func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Request, start time.Time, params *backend.InfluxParams) []*backend.ResponseData {
+func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams) []*backend.ResponseData {
 
 	if rr.Type != "WR" {
 		rr.log.Error().Msgf("Error Wrong type Rule in %s", rr.cfg.Name)
@@ -571,7 +571,7 @@ func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
+func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, p *backend.InfluxParams) {
 
 	if rt.cfg.Level == "data" {
 		relayctx.AppendCxtTracePath(r, "decode", string(rt.DecodeFmt))
@@ -594,7 +594,7 @@ func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, start 
 
 	for _, rule := range rt.rules {
 		relayctx.AppendCxtTracePath(r, "rule", rule.cfg.Name)
-		responses := rule.Process(w, r, start, p)
+		responses := rule.Process(w, r, p)
 		for _, resp := range responses {
 			relayctx.AppendToRequest(r, resp)
 		}

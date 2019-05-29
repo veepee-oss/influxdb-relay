@@ -3,7 +3,6 @@ package relay
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/toni-moreno/influxdb-srelay/backend"
@@ -15,7 +14,7 @@ type HTTPEndPoint struct {
 	cfg         *config.Endpoint
 	log         *zerolog.Logger
 	routes      []*HTTPRoute
-	process     func(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams)
+	process     func(w http.ResponseWriter, r *http.Request, p *backend.InfluxParams)
 	splitParams func(r *http.Request) *backend.InfluxParams
 }
 
@@ -53,7 +52,7 @@ func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, er
 	return e, nil
 }
 
-func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
+func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, p *backend.InfluxParams) {
 	//AppendCxtTracePath(r, "endp|READ", e.cfg.URI[0])
 	processed := false
 	for k, router := range e.routes {
@@ -63,7 +62,7 @@ func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start
 			e.log.Debug().Msgf("Route %s Match!!!!", router.cfg.Name)
 			e.log.Debug().Msgf("Processing READ route %d , %+v", k, router)
 			processed = true
-			router.ProcessRules(w, r, start, p)
+			router.ProcessRules(w, r, p)
 			break
 		}
 	}
@@ -76,7 +75,7 @@ func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, start
 
 }
 
-func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, start time.Time, p *backend.InfluxParams) {
+func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, p *backend.InfluxParams) {
 	processed := false
 	for k, router := range e.routes {
 		e.log.Debug().Msgf("Processing WRITE route %d , %s", k, router.cfg.Name)
@@ -85,7 +84,7 @@ func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, star
 			e.log.Debug().Msgf("Processing WRITE route %d , %+v", k, router)
 			processed = true
 			relayctx.AppendCxtTracePath(r, "rt", router.cfg.Name)
-			router.ProcessRules(w, r, start, p)
+			router.ProcessRules(w, r, p)
 			relayctx.SetServedOK(r)
 			break
 		}
@@ -96,7 +95,7 @@ func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, star
 	}
 }
 
-func (e *HTTPEndPoint) ProcessInput(w http.ResponseWriter, r *http.Request, start time.Time) bool {
+func (e *HTTPEndPoint) ProcessInput(w http.ResponseWriter, r *http.Request) bool {
 
 	//check if match uri's
 	found := false
@@ -115,7 +114,7 @@ func (e *HTTPEndPoint) ProcessInput(w http.ResponseWriter, r *http.Request, star
 
 	e.log.Info().Msgf("Init Processing Endpoint %s", uri)
 	params := e.splitParams(r)
-	e.process(w, r, start, params)
+	e.process(w, r, params)
 
 	return true
 }

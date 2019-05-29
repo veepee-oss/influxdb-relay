@@ -148,6 +148,7 @@ func (h *HTTP) Run() error {
 
 	err = http.Serve(l, h)
 	if atomic.LoadInt64(&h.closing) != 0 {
+		h.log.Info().Msg("Relay Run, closing....")
 		return nil
 	}
 	return err

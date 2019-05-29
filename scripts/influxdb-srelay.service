@@ -1,8 +1,8 @@
 # If you modify this, please also make sure to edit init.sh
 
 [Unit]
-Description=InfluxDB-Relay is a service to replicate InfluxDB data for high availability
-Documentation=https://github.com/influxdata/influxdb-srelay
+Description=InfluxDB-SmartRelay is a service to replicate/route/trasnform InfluxDB data
+Documentation=https://github.com/toni-moreno/influxdb-srelay
 After=network.target
 
 [Service]

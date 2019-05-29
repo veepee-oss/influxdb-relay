@@ -1,12 +1,14 @@
-# v 0.4.0 (unreleased)
+# v 0.4.0 (2019-05-29)
 
 ## New features
-
-* added command line parameters -rp and -meas to filter rps and measurements (implement #3)
+* added kb_duratiom_ms and latency_ms fields to the access.log
+* Added Online Config check and reload if ok, Kill -HUP
+* improved doc in sample.conf
 
 ## fixes
 
-* Fix #8
+* Fix #11,#10
+* fixed distribution packages descriptions
 
 # v 0.3.0 (2019-05-23)
 

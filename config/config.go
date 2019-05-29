@@ -201,7 +201,7 @@ type Rule struct {
 	KeyAux         string     `toml:"key_aux"`
 	Match          string     `toml:"match"`
 	Value          string     `toml:"value"`
-	ValueOnUnMatch string     `toml:"value_on_unmatch`
+	ValueOnUnMatch string     `toml:"value_on_unmatch"`
 	ToCluster      string     `toml:"to_cluster"`
 }
 

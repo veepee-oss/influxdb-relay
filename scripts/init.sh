@@ -5,7 +5,7 @@
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Start the InfluxDB-Relay process
+# Short-Description: Start the InfluxDB-SmartRelay process
 ### END INIT INFO
 
 # If you modify this, please make sure to also edit influxdb.service

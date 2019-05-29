@@ -209,10 +209,14 @@ func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, st
 				p.SetName(newName)
 			}
 		}
-	case "field":
-		rr.log.Warn().Msgf("Field Rename Not Supported Yet on rule %s", rr.cfg.Name)
-	case "tag":
-		rr.log.Warn().Msgf("Tag Rename Not Supported Yet on rule %s", rr.cfg.Name)
+	case "field", "fieldvalue":
+		rr.log.Warn().Msgf("Field Value Rename Not Supported Yet on rule %s", rr.cfg.Name)
+	case "tag", "tagvalue":
+		rr.log.Warn().Msgf("Tag  Value Rename Not Supported Yet on rule %s", rr.cfg.Name)
+	case "fieldname":
+		rr.log.Warn().Msgf("Field Value Rename Not Supported Yet on rule %s", rr.cfg.Name)
+	case "tagname":
+		rr.log.Warn().Msgf("Tag  Value Rename Not Supported Yet on rule %s", rr.cfg.Name)
 	default:
 		rr.log.Warn().Msgf("Rename Data key  %d not supported in rule %s", rr.cfg.Key, rr.cfg.Name)
 	}
@@ -241,7 +245,7 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 				}
 			}
 		}
-	case "tag":
+	case "tag", "tagvalue":
 		tagkey := rr.cfg.KeyAux
 		// need for rr.cfg.Key_aux
 		for _, p := range params.Points {
@@ -258,7 +262,7 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 			if len(tagvalue) > 0 && rr.filter.Match(tagvalue) {
 				//rr.log.Debug().Msgf("Found Tag key [%s] with value [%s]", tagkey, tagvalue)
 				dbName := rr.filter.ReplaceAllString(string(tagvalue), rr.cfg.Value)
-				rr.log.Debug().Msgf("Got DB name %s from Tag key %s Tag Value %s", dbName, tagkey, tagvalue)
+				rr.log.Debug().Msgf("Selected DB name: %s | Tag key: %s |Tag Value %s", dbName, tagkey, tagvalue)
 				//rr.log.Debug().Msgf("POINT :%+v", p)
 				if newpoints, ok := dbs[dbName]; ok {
 					newpoints = append(newpoints, p)
@@ -287,9 +291,12 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 			}
 		}
 
-	case "field":
-		rr.log.Warn().Msgf("Field Based Route Not Supported Yet on rule %s", rr.cfg.Name)
-
+	case "field", "fieldvalue":
+		rr.log.Warn().Msgf("Field Value Based Route Not Supported Yet on rule %s", rr.cfg.Name)
+	case "fieldname":
+		rr.log.Warn().Msgf("Field Name Based Route Not Supported Yet on rule %s", rr.cfg.Name)
+	case "tagname":
+		rr.log.Warn().Msgf("Tag Name Based Route Not Supported Yet on rule %s", rr.cfg.Name)
 	default:
 		rr.log.Warn().Msgf("Rename Data key  %d not supported in rule %s", rr.cfg.Key, rr.cfg.Name)
 	}

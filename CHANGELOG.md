@@ -1,3 +1,46 @@
+# v 0.4.0 (unreleased)
+
+## New features
+
+* added command line parameters -rp and -meas to filter rps and measurements (implement #3)
+
+## fixes
+
+* Fix #8
+
+# v 0.3.0 (2019-05-23)
+
+## New features
+
+* added `/admin/<cluster_id>` API for clusters
+* added HA example
+
+# v 0.2.0 (2019-05-16)
+
+## New features
+
+* improved ping,health,status http responses
+* added config validations
+* Second big refactor.
+* Improved docker image
+
+## fixes
+
+* fix HTTP response thus if not matched with any route
+* fix /health  handler for the process rather than the cluster
+* fix log path when relative, will be now relative to logdir if configured and with CWD if not
+
+# v 0.1.0 (2019-04-25)
+
+## New features
+
+* renamed project from influxdb-relay to influxdb-srelay 
+* first big refactor
+* added influx IQL query support, and query-router-endpoint-api parameter to get a list of available influx ID's to send /query quieries
+
+# PREVIOUS RELEASES
+
+
 Jun 28 2018 Antoine MILLET <amillet@vente-privee.com>
 	From https://github.com/influxdata/influxdb-srelay
 

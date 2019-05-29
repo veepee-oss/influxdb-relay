@@ -269,7 +269,9 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 
 			} else {
 				//not match or not found the tag
+				//rr.log.Debug().Msgf("POINT NOT MATCH :%+v", p)
 				if len(rr.cfg.ValueOnUnMatch) > 0 {
+					//rr.log.Debug().Msgf("VALUE UNMATCH TO :%+s", rr.cfg.ValueOnUnMatch)
 					dbName := rr.cfg.ValueOnUnMatch
 					if newpoints, ok := dbs[dbName]; ok {
 						newpoints = append(newpoints, p)
@@ -277,9 +279,11 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 					} else {
 						dbs[dbName] = models.Points{p}
 					}
-				}
+				} /*else {
+					rr.log.Debug().Msgf("NOT UNMATCH RULE : %+v", rr.cfg)
+				}*/
 				//not match
-				rr.log.Debug().Msgf("Point does not match namespace TAGVALUE %s (Measuerement : %s) TAGS %+v", tagvalue, p.Name(), p.Tags())
+				rr.log.Debug().Msgf("Point does not match TAGVALUE %s (Measurement : %s) TAGS %+v", tagvalue, p.Name(), p.Tags())
 			}
 		}
 

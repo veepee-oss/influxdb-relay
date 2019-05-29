@@ -182,24 +182,29 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	relayctx.AppendCxtTracePath(R, "http", h.cfg.Name)
 
 	h.log.Debug().Msgf("IN REQUEST:%+v", R)
+	//first we will try to process user EndPoints
+	allMiddlewares(h, ProcessEndpoint)(h, w, R, time.Now())
+	//if not served we will process the amdin EndPoints
+	served := relayctx.GetServed(R)
+	if !served {
+		h.log.Debug().Msg("Query not served by user endpoints, reviewing relay handlers ")
+		for url, fun := range handlers {
+			if strings.HasPrefix(r.URL.Path, url) {
+				var clusterid string
+				if url == R.URL.Path {
+					clusterid = ""
+				} else {
+					clusterid = strings.TrimPrefix(R.URL.Path, url+"/")
+				}
 
-	for url, fun := range handlers {
-		if strings.HasPrefix(r.URL.Path, url) {
-			var clusterid string
-			if url == R.URL.Path {
-				clusterid = ""
-			} else {
-				clusterid = strings.TrimPrefix(R.URL.Path, url+"/")
+				h.log.Debug().Msgf("handle r.URL.Path for CLUSTERID %s", clusterid)
+				relayctx.SetCtxParam(R, "clusterid", clusterid)
+
+				allMiddlewares(h, fun)(h, w, R, time.Now())
+				return
 			}
 
-			h.log.Debug().Msgf("handle r.URL.Path for CLUSTERID %s", clusterid)
-			relayctx.SetCtxParam(R, "clusterid", clusterid)
-
-			allMiddlewares(h, fun)(h, w, R, time.Now())
-			return
 		}
-
 	}
-	allMiddlewares(h, ProcessEndpoint)(h, w, R, time.Now())
-	//TODO: process allMiddleware before handlers (most probable /write /read than /admin /health)
+
 }

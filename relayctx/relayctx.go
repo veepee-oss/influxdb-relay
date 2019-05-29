@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/toni-moreno/influxdb-srelay/backend"
 	"net/http"
+	"time"
 )
 
 type RelayRequestCtx struct {
@@ -23,6 +24,25 @@ type RelayRequestCtx struct {
 	//Final HTTP Data Sent
 	SentHTTPStatus int
 	SentDataLength int
+	Served         bool
+	InputTime      time.Time
+	BackendTime    time.Time
+	EndTime        time.Time
+}
+
+func SetServedOK(r *http.Request) {
+	rc := r.Context().Value("RelayRequestCtx").(*RelayRequestCtx)
+	if rc != nil {
+		rc.Served = true
+	}
+
+}
+func GetServed(r *http.Request) bool {
+	rc := r.Context().Value("RelayRequestCtx").(*RelayRequestCtx)
+	if rc != nil {
+		return rc.Served
+	}
+	return false
 }
 
 func AppendCxtTracePath(r *http.Request, component string, path string) {
@@ -38,6 +58,7 @@ func AppendCxtTracePath(r *http.Request, component string, path string) {
 func InitRelayContext(r *http.Request) *http.Request {
 	val := make(map[string]string)
 	rc := &RelayRequestCtx{responses: []*backend.ResponseData{}, in: val}
+	rc.InputTime = time.Now()
 	ctx := context.WithValue(r.Context(), "RelayRequestCtx", rc)
 	return r.WithContext(ctx)
 }

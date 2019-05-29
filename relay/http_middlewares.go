@@ -73,7 +73,7 @@ func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 			Int("write-size", rc.RequestSize).
 			Int("write-points", rc.RequestPoints).
 			Int("returnsize", rc.SentDataLength).
-			Dur("duration_ms", time.Since(start)).
+			Dur("duration_ms", time.Since(rc.InputTime)).
 			Int("status", rc.SentHTTPStatus).
 			Str("method", r.Method).
 			Str("user", utils.GetUserFromRequest(r)). // <---allready computed from http_params !! REVIEW!!!

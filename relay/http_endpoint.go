@@ -86,6 +86,7 @@ func (e *HTTPEndPoint) ProcessWrite(w http.ResponseWriter, r *http.Request, star
 			processed = true
 			relayctx.AppendCxtTracePath(r, "rt", router.cfg.Name)
 			router.ProcessRules(w, r, start, p)
+			relayctx.SetServedOK(r)
 			break
 		}
 	}

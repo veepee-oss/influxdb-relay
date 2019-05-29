@@ -174,7 +174,7 @@ func (rr *RouteRule) ActionRouteData(w http.ResponseWriter, r *http.Request, par
 
 		if rr.Type == "WR" {
 			rr.log.Info().Msg("Handle Write.....")
-			return val.WriteData(w, newParams, data)
+			return val.WriteData(w, r, newParams, data)
 		}
 		rr.log.Info().Msg("Handle Query....")
 		val.QueryHTTP(w, r)
@@ -317,7 +317,7 @@ func (rr *RouteRule) ActionRouteDBFromData(w http.ResponseWriter, r *http.Reques
 			newParams.SetDB(db)
 
 			rr.log.Info().Msgf("Handle DB route Write to %s.....", db)
-			resp := val.WriteData(w, newParams, data)
+			resp := val.WriteData(w, r, newParams, data)
 			for _, r := range resp {
 				if r.StatusCode/100 != 2 {
 					rr.log.Error().Msgf("Error in write data to %s : Error: %s ", r.Serverid, string(r.Body))

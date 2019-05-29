@@ -19,6 +19,7 @@ func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request) {
 	}
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Ping for cluster %s", clusterid)
+		relayctx.SetBackendTime(r)
 		c.HandlePing(w, r)
 		return
 	}
@@ -30,6 +31,7 @@ func (h *HTTP) handleStatus(w http.ResponseWriter, r *http.Request) {
 	clusterid := relayctx.GetCtxParam(r, "clusterid")
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Status for cluster %s", clusterid)
+		relayctx.SetBackendTime(r)
 		c.HandleStatus(w, r)
 		return
 	}
@@ -47,6 +49,7 @@ func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Health for cluster %s", clusterid)
+		relayctx.SetBackendTime(r)
 		c.HandleHealth(w, r)
 		return
 	}
@@ -60,6 +63,7 @@ func (h *HTTP) handleFlush(w http.ResponseWriter, r *http.Request) {
 
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle flush for cluster %s", clusterid)
+		relayctx.SetBackendTime(r)
 		c.HandleFlush(w, r)
 		return
 	}
@@ -72,6 +76,7 @@ func (h *HTTP) handleAdmin(w http.ResponseWriter, r *http.Request) {
 
 	if c, ok := clusters[clusterid]; ok {
 		h.log.Info().Msgf("Handle Admin for cluster %s", clusterid)
+		relayctx.SetBackendTime(r)
 		c.HandleAdmin(w, r)
 		return
 	}

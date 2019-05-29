@@ -51,7 +51,7 @@ type Cluster struct {
 	queryRouterEndpointAPI []string
 
 	WriteHTTP func(w http.ResponseWriter, r *http.Request) []*backend.ResponseData
-	WriteData func(w http.ResponseWriter, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData
+	WriteData func(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData
 	QueryHTTP func(w http.ResponseWriter, r *http.Request)
 
 	bufPool sync.Pool
@@ -192,7 +192,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request) []*b
 
 	// check for authorization performed via the header
 	authHeader := r.Header.Get("Authorization")
-
+	relayctx.SetBackendTime(r)
 	b := c.backends[0]
 	resp, err := b.Post(outBytes, query, authHeader, "write", "")
 	if err != nil {
@@ -237,7 +237,7 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request) []*backe
 	relayctx.SetCtxRequestSize(r, bodyBuf.Len(), -1)
 
 	var responses = make(chan *backend.ResponseData, len(c.backends))
-
+	relayctx.SetBackendTime(r)
 	for _, b := range c.backends {
 		b := b
 
@@ -265,10 +265,10 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request) []*backe
 	return utils.ChanToSlice(responses).([]*backend.ResponseData)
 }
 
-func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData {
+func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData {
 
 	//AppendCxtTracePath(r, "handleWriteDataSingle", c.cfg.Name)
-
+	relayctx.SetBackendTime(r)
 	b := c.backends[0]
 	resp, err := b.Post(data.Bytes(), params.QueryEncode(), params.Header["authorization"], "write", "")
 	if err != nil {
@@ -282,7 +282,7 @@ func (c *Cluster) handleWriteDataSingle(w http.ResponseWriter, params *backend.I
 	return []*backend.ResponseData{resp}
 }
 
-func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData {
+func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, r *http.Request, params *backend.InfluxParams, data *bytes.Buffer) []*backend.ResponseData {
 
 	//AppendCxtTracePath(r, "handleWriteDataHA", c.cfg.Name)
 
@@ -294,7 +294,7 @@ func (c *Cluster) handleWriteDataHA(w http.ResponseWriter, params *backend.Influ
 	encode := params.QueryEncode()
 	databytes := data.Bytes()
 	auth := params.Header["authorization"]
-
+	relayctx.SetBackendTime(r)
 	for _, b := range c.backends {
 		b := b
 
@@ -395,6 +395,7 @@ func (c *Cluster) getValidQueryBackend() *backend.DbBackend {
 
 func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request) {
 	relayctx.AppendCxtTracePath(r, "handleQueryHA", c.cfg.Name)
+
 	if r.Method != http.MethodPost && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		//w.Header().Set("Allow", http.MethodPost)
 		if r.Method == http.MethodOptions {
@@ -430,7 +431,7 @@ func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, b *backend
 
 	paramString := queryParams.Encode()
 	authHeader := r.Header.Get("Authorization")
-
+	relayctx.SetBackendTime(r)
 	resp, err := b.Query(paramString, authHeader, "query")
 	if err != nil {
 		c.log.Error().Msgf("Problem posting to cluster %s backend %s: %s", c.cfg.Name, b.Name(), err)

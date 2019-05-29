@@ -63,6 +63,13 @@ func InitRelayContext(r *http.Request) *http.Request {
 	return r.WithContext(ctx)
 }
 
+func SetBackendTime(r *http.Request) {
+	rc := r.Context().Value("RelayRequestCtx").(*RelayRequestCtx)
+	if rc != nil {
+		rc.BackendTime = time.Now()
+	}
+}
+
 func GetRelayContext(r *http.Request) *RelayRequestCtx {
 	rc := r.Context().Value("RelayRequestCtx").(*RelayRequestCtx)
 	if rc != nil {

@@ -530,10 +530,10 @@ func (rt *HTTPRoute) HandleHTTPResponse(w http.ResponseWriter, r *http.Request) 
 	responses := relayctx.GetResponses(r)
 
 	if len(responses) == 0 {
-		rt.log.Info().Msgf("No responses found on request route %s ", rt.cfg.Name)
+		rt.log.Info().Msgf("No HTTP responses found on request route %s ", rt.cfg.Name)
 		return
 	}
-	rt.log.Debug().Msgf("Recovered %d, responses", len(responses))
+	rt.log.Debug().Msgf("Recovered %d, HTTP responses", len(responses))
 
 	w.Header().Set("Content-Type", "text/plain")
 

@@ -188,7 +188,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request, star
 	outBytes := bodyBuf.Bytes()
 	relayctx.SetCtxRequestSize(r, bodyBuf.Len(), -1)
 
-	c.log.Info().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
+	c.log.Debug().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
 
 	// check for authorization performed via the header
 	authHeader := r.Header.Get("Authorization")
@@ -228,7 +228,7 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request, start ti
 
 	outBytes := bodyBuf.Bytes()
 
-	c.log.Info().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
+	c.log.Debug().Msgf("Content Length BODYBUF: %d", len(bodyBuf.String()))
 	// check for authorization performed via the header
 	authHeader := r.Header.Get("Authorization")
 

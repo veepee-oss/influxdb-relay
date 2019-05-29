@@ -68,10 +68,9 @@ func ReloadRelay() {
 		log.Printf("Error on reload File [%s]: ERR: %s", configFile, err)
 		return
 	}
-	log.Printf("Reloading Config File on reload File", cfg)
+	log.Printf("Reloading Config File %#+v", cfg)
 	//config ok
 	relay.Stop()
-
 }
 
 func main() {

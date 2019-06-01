@@ -65,23 +65,25 @@ func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 		h.log.Debug().Msg("----------------------INIT logMiddleWare------------------------")
 		next(h, w, r)
 		rc := relayctx.GetRelayContext(r)
+		if rc.Served {
+			h.acclog.Info().
+				Str("trace-route", rc.TraceRoute.String()).
+				Str("referer", r.Referer()).
+				Str("url", r.URL.String()).
+				Int("write-size", rc.RequestSize).
+				Int("write-points", rc.RequestPoints).
+				Int("returnsize", rc.SentDataLength).
+				Dur("duration_ms", time.Since(rc.InputTime)).
+				Dur("bk_duration_ms", time.Since(rc.BackendTime)).
+				Dur("latency_ms", rc.BackendTime.Sub(rc.InputTime)).
+				Int("status", rc.SentHTTPStatus).
+				Str("method", r.Method).
+				Str("user", utils.GetUserFromRequest(r)). // <---allready computed from http_params !! REVIEW!!!
+				Str("source", r.RemoteAddr).
+				Str("user-agent", r.UserAgent()).
+				Msg("")
+		}
 
-		h.acclog.Info().
-			Str("trace-route", rc.TraceRoute.String()).
-			Str("referer", r.Referer()).
-			Str("url", r.URL.String()).
-			Int("write-size", rc.RequestSize).
-			Int("write-points", rc.RequestPoints).
-			Int("returnsize", rc.SentDataLength).
-			Dur("duration_ms", time.Since(rc.InputTime)).
-			Dur("bk_duration_ms", time.Since(rc.BackendTime)).
-			Dur("latency_ms", rc.BackendTime.Sub(rc.InputTime)).
-			Int("status", rc.SentHTTPStatus).
-			Str("method", r.Method).
-			Str("user", utils.GetUserFromRequest(r)). // <---allready computed from http_params !! REVIEW!!!
-			Str("source", r.RemoteAddr).
-			Str("user-agent", r.UserAgent()).
-			Msg("")
 		h.log.Debug().Msg("----------------------END logMiddleWare------------------------")
 	})
 }

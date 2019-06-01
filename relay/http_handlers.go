@@ -13,6 +13,7 @@ func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request) {
 	if len(clusterid) == 0 {
 		h.log.Info().Msgf("Handle Health for the hole process....")
 		//health for the hole process
+		relayctx.SetBackendTime(r)
 		utils.AddInfluxPingHeaders(w, "Influx-Smart-Relay")
 		relayctx.VoidResponse(w, r, 200)
 		return
@@ -44,6 +45,7 @@ func (h *HTTP) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if len(clusterid) == 0 {
 		h.log.Info().Msgf("Handle Health for the hole process....")
 		//health for the hole process
+		relayctx.SetBackendTime(r)
 		relayctx.JsonResponse(w, r, 200, "OK")
 		return
 	}

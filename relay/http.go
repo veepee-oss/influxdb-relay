@@ -160,6 +160,15 @@ func (h *HTTP) Stop() error {
 	return h.l.Close()
 }
 
+func (h *HTTP) processUnknown(w http.ResponseWriter, r *http.Request) {
+	// Begin process for
+	relayctx.SetServedOK(r)
+	relayctx.SetBackendTime(r)
+	relayctx.VoidResponse(w, r, 400)
+}
+
+var ProcessUnknown relayHandlerFunc = (*HTTP).processUnknown
+
 func (h *HTTP) processEndpoint(w http.ResponseWriter, r *http.Request) {
 	// Begin process for
 	for i, endpoint := range h.Endpoints {
@@ -198,13 +207,15 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				h.log.Debug().Msgf("handle r.URL.Path for CLUSTERID %s", clusterid)
+				relayctx.SetServedOK(R)
 				relayctx.SetCtxParam(R, "clusterid", clusterid)
-
 				allMiddlewares(h, fun)(h, w, R)
 				return
 			}
 
 		}
+		//NOT SERVED YET
+		allMiddlewares(h, ProcessUnknown)(h, w, R)
 	}
 
 }

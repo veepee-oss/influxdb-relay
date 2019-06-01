@@ -127,8 +127,12 @@ const (
 
 	//Data Based
 	RKey_measurement RuleKey = "measurement"
-	RKey_field       RuleKey = "field"
-	RKey_tag         RuleKey = "tag"
+	RKey_field       RuleKey = "field" //for compatibility old versions, use fieldvalue instead
+	RKey_fieldValue  RuleKey = "fieldvalue"
+	RKey_fieldName   RuleKey = "fieldname"
+	RKey_tag         RuleKey = "tag" //for compatibility old versions, use tagvalue instead
+	RKey_tagValue    RuleKey = "tagvalue"
+	RKey_tagName     RuleKey = "tagname"
 )
 
 func ValidateKey(name string, key RuleKey) error {
@@ -155,7 +159,11 @@ func ValidateKey(name string, key RuleKey) error {
 	case RKey_consistency:
 	case RKey_measurement:
 	case RKey_field:
+	case RKey_fieldValue:
+	case RKey_fieldName:
 	case RKey_tag:
+	case RKey_tagValue:
+	case RKey_tagName:
 	default:
 		return fmt.Errorf("Error in parse Rule %s: Invalid Key %s", name, key)
 	}

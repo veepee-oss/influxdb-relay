@@ -42,19 +42,22 @@ func StartRelay() error {
 	cfg, err := config.LoadConfigFile(*configFile)
 	if err != nil {
 		log.Println("Version: " + relayVersion)
-		log.Fatal(err.Error())
+		log.Print(err.Error())
 		return err
 	}
+	//utils.CloseLogFiles()
+	//utils.ResetLogFiles()
+
 	utils.SetLogdir(*logDir)
 	utils.SetVersion(relayVersion)
 	backend.SetLogdir(*logDir)
 	backend.SetConfig(cfg)
 	cluster.SetLogdir(*logDir)
 	cluster.SetConfig(cfg)
-
+	relay = nil
 	relay, err = relayservice.New(cfg, *logDir)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 		return err
 	}
 	log.Println("starting relays...")
@@ -71,6 +74,7 @@ func ReloadRelay() {
 	log.Printf("Reloading Config File %#+v", cfg)
 	//config ok
 	relay.Stop()
+
 }
 
 func main() {
@@ -113,7 +117,7 @@ func main() {
 			case sig := <-c:
 				recsignal = sig
 				switch sig {
-				case syscall.SIGTERM, syscall.SIGQUIT: // 15,3
+				case syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT: // 15,3
 					log.Printf("Received TERM signal")
 					relay.Stop()
 					log.Printf("Exiting for requested user SIGTERM")
@@ -140,7 +144,7 @@ func main() {
 	for {
 		err := StartRelay()
 		if err != nil {
-			log.Fatal("ERROR on start Relay : %s", err)
+			log.Print("ERROR on start Relay : %s", err)
 			os.Exit(1)
 		}
 		switch recsignal {

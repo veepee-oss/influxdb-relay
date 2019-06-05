@@ -7,7 +7,7 @@ watch_all = true
 watch_dirs = [
 	"$WORKDIR",
 ]
-watch_exts = [".go", ".toml",".conf"]
+watch_exts = [".go", ".toml"]
 build_delay = 1500
 cmds = [
   ["scripts/build.py","--clean","-v","--race"],

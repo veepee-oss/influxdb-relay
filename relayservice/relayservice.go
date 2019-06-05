@@ -15,7 +15,7 @@ type Service struct {
 }
 
 // New loads the different relays from the configuration file
-func New(config config.Config, logdir string) (*Service, error) {
+func New(config *config.Config, logdir string) (*Service, error) {
 	relay.SetConfig(config)
 	relay.SetLogdir(logdir)
 	err := relay.InitClusters()

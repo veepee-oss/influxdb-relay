@@ -370,8 +370,8 @@ func (h *HTTPConfig) ValidateCfg(cfg *Config) error {
 }
 
 // LoadConfigFile parses the specified file into a Config object
-func LoadConfigFile(filename string) (Config, error) {
-	var cfg Config
+func LoadConfigFile(filename string) (*Config, error) {
+	var cfg = &Config{}
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -383,19 +383,19 @@ func LoadConfigFile(filename string) (Config, error) {
 		return cfg, err
 	}
 
-	if _, err := toml.Decode(string(tomlData), &cfg); err != nil {
+	if _, err := toml.Decode(string(tomlData), cfg); err != nil {
 		return cfg, err
 	}
 	//Validate Cluster Config
 	for _, c := range cfg.Influxcluster {
-		err := c.ValidateCfg(&cfg)
+		err := c.ValidateCfg(cfg)
 		if err != nil {
 			return cfg, err
 		}
 	}
 	//Validate Backend Config
 	for _, b := range cfg.Influxdb {
-		err := b.ValidateCfg(&cfg)
+		err := b.ValidateCfg(cfg)
 		if err != nil {
 			return cfg, err
 		}
@@ -403,7 +403,7 @@ func LoadConfigFile(filename string) (Config, error) {
 
 	//Validate Backend Config
 	for _, h := range cfg.HTTPConfig {
-		err := h.ValidateCfg(&cfg)
+		err := h.ValidateCfg(cfg)
 		if err != nil {
 			return cfg, err
 		}

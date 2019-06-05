@@ -14,12 +14,12 @@ type Relay interface {
 }
 
 var (
-	mainConfig config.Config
+	mainConfig *config.Config
 	logDir     string
 	clusters   map[string]*cluster.Cluster
 )
 
-func SetConfig(cfg config.Config) {
+func SetConfig(cfg *config.Config) {
 	mainConfig = cfg
 }
 

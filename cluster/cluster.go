@@ -5,11 +5,11 @@ import (
 )
 
 var (
-	mainConfig config.Config
+	mainConfig *config.Config
 	logDir     string
 )
 
-func SetConfig(cfg config.Config) {
+func SetConfig(cfg *config.Config) {
 	mainConfig = cfg
 }
 

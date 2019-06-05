@@ -11,9 +11,15 @@ import (
 	"strings"
 )
 
+type LogFile struct {
+	Name string
+	File *os.File
+}
+
 var (
 	logDir       string
 	relayVersion string
+	logfiles     []*LogFile
 )
 
 func SetLogdir(ld string) {
@@ -36,19 +42,40 @@ func ChanToSlice(ch interface{}) interface{} {
 	}
 }
 
+func ResetLogFiles() {
+	logfiles = nil
+}
+
+func CloseLogFiles() {
+	for _, f := range logfiles {
+		err := f.File.Close()
+		if err != nil {
+			log.Error().Msgf("Error on close log file %s:  Err: %s", f.Name, err)
+		}
+		log.Info().Msgf("log file %s: closed ok!", f.Name)
+	}
+}
+
 func GetConsoleLogFormated(logfile string, level string) *zerolog.Logger {
+
 	var i *os.File
 	if len(logfile) > 0 {
 		filename := logfile
 		if !filepath.IsAbs(logfile) {
 			filename = filepath.Join(logDir, filename)
 		}
-		file, _ := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		log.Info().Msgf("trying to open log file %s .....", filename)
+		file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			log.Error().Msgf("Error on opening file %s : ERROR: %s", filename, err)
+		}
 		i = file
+		logfiles = append(logfiles, &LogFile{Name: filename, File: i})
 	} else {
 		i = os.Stderr
 	}
-	f := log.Output(zerolog.ConsoleWriter{Out: i, TimeFormat: "2006-01-02 15:04:05"})
+	writer := zerolog.ConsoleWriter{Out: i, TimeFormat: "2006-01-02 15:04:05"}
+	f := log.Output(writer)
 	var logger zerolog.Logger
 	switch level {
 	case "panic":

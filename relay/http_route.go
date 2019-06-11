@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	//"log"
 	"regexp"
 	"time"
 
@@ -466,7 +467,7 @@ type HTTPRoute struct {
 }
 
 func NewHTTPRoute(cfg *config.Route, mode config.EndPType, l *zerolog.Logger, format config.EndPSFormat) (*HTTPRoute, error) {
-	rt := &HTTPRoute{Type: mode, log: l}
+	rt := &HTTPRoute{Type: mode}
 
 	rt.cfg = cfg
 
@@ -479,7 +480,10 @@ func NewHTTPRoute(cfg *config.Route, mode config.EndPType, l *zerolog.Logger, fo
 			filename = "http_route_" + cfg.Name + ".log"
 		}
 		rt.log = utils.GetConsoleLogFormated(filename, cfg.LogLevel)
+	} else {
+		rt.log = l
 	}
+	//log.Printf("Logger for route %s  [%s]: %+v\n", cfg.Name, cfg.LogLevel, rt.log)
 
 	for _, f := range cfg.Filter {
 		rf, err := NewRouteFilter(f, rt.log)

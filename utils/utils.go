@@ -59,8 +59,9 @@ func CloseLogFiles() {
 func GetConsoleLogFormated(logfile string, level string) *zerolog.Logger {
 
 	var i *os.File
+	var filename string
 	if len(logfile) > 0 {
-		filename := logfile
+		filename = logfile
 		if !filepath.IsAbs(logfile) {
 			filename = filepath.Join(logDir, filename)
 		}
@@ -91,9 +92,10 @@ func GetConsoleLogFormated(logfile string, level string) *zerolog.Logger {
 	case "debug":
 		logger = f.Level(zerolog.DebugLevel)
 	default:
-
 		logger = f.Level(zerolog.InfoLevel)
 	}
+	//log.Printf("---------------------------------------------")
+	//log.Printf("Logger for file %s : %v: %+v\n", filename, i, &logger)
 	return &logger
 }
 

@@ -121,7 +121,6 @@ func main() {
 					log.Printf("Received TERM signal")
 					relay.Stop()
 					log.Printf("Exiting for requested user SIGTERM")
-					os.Exit(1)
 				case syscall.SIGHUP: // 1
 					log.Printf("Received HUP signal")
 					ReloadRelay()
@@ -148,7 +147,7 @@ func main() {
 			os.Exit(1)
 		}
 		switch recsignal {
-		case syscall.SIGTERM, syscall.SIGQUIT:
+		case syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT:
 			os.Exit(0)
 		}
 	}

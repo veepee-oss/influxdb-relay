@@ -6,7 +6,7 @@
 
 ## fixes
 
-* Fix #7,#16
+* Fix #7,#16,#3
 
 ## Breaking changes
 

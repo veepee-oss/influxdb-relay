@@ -15,7 +15,7 @@ func (h *HTTP) handlePing(w http.ResponseWriter, r *http.Request) {
 		//health for the hole process
 		relayctx.SetBackendTime(r)
 		utils.AddInfluxPingHeaders(w, "Influx-Smart-Relay")
-		relayctx.VoidResponse(w, r, 200)
+		relayctx.VoidResponse(w, r, 204)
 		return
 	}
 	if c, ok := clusters[clusterid]; ok {

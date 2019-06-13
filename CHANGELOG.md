@@ -1,3 +1,17 @@
+# v 0.5.0
+
+## New features
+
+* added TLS paramters tls_cer, tls_key for HTTP endpoint
+
+## fixes
+
+* Fix #7,#16
+
+## Breaking changes
+
+* removed old ssl-combined-pem, changed by tls_cer, tls_key
+
 # v 0.4.0 (2019-05-29)
 
 ## New features

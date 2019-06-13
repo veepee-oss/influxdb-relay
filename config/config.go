@@ -354,7 +354,8 @@ type HTTPConfig struct {
 	BurstLimit int         `toml:"burst-limit,omitempty"`
 	Endpoint   []*Endpoint `toml:"endpoint"`
 	// Set certificate in order to handle HTTPS requests
-	SSLCombinedPem string `toml:"ssl-combined-pem"`
+	TLSCert string `toml:"tls_cert"`
+	TLSKey  string `toml:"tls_key"`
 	// Default retention policy to set for forwarded requests
 	DefaultRetentionPolicy string `toml:"default-retention-policy"`
 }

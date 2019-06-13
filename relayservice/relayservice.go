@@ -3,6 +3,7 @@ package relayservice
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 
 	"github.com/toni-moreno/influxdb-srelay/config"
@@ -11,7 +12,7 @@ import (
 
 // Service is a map of relays
 type Service struct {
-	relays map[string]relay.Relay
+	relays map[string]*relay.HTTP
 }
 
 // New loads the different relays from the configuration file
@@ -23,7 +24,7 @@ func New(config *config.Config, logdir string) (*Service, error) {
 		return nil, fmt.Errorf("Error on create Clusters: %s", err)
 	}
 	s := new(Service)
-	s.relays = make(map[string]relay.Relay)
+	s.relays = make(map[string]*relay.HTTP)
 
 	for _, cfg := range config.HTTPConfig {
 		h, err := relay.NewHTTP(cfg)
@@ -76,9 +77,10 @@ func (s *Service) Run() error {
 
 	wg.Wait()
 	close(responses)
-
+	log.Printf("Closing relays ")
 	for err := range responses {
-		if err != nil {
+		//http.ErrServerClosed happens always when server has been closed with Shutdown/Close
+		if err != nil && err != http.ErrServerClosed {
 			return err
 		}
 	}
@@ -90,5 +92,12 @@ func (s *Service) Stop() {
 	for _, v := range s.relays {
 		log.Printf("Stopping relay %s...", v.Name())
 		v.Stop()
+	}
+}
+
+func (s *Service) Release() {
+	for _, v := range s.relays {
+		log.Printf("Releasing the relay %s...", v.Name())
+		v.Release()
 	}
 }

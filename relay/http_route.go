@@ -42,6 +42,14 @@ func NewRouteFilter(cfg *config.Filter, l *zerolog.Logger) (*RouteFilter, error)
 	return rf, nil
 }
 
+func (rf *RouteFilter) Release() {
+
+	rf.cfg = nil
+	rf.filter = nil
+	rf.log = nil
+
+}
+
 func (rf *RouteFilter) Match(params *backend.InfluxParams) bool {
 
 	val, ok := params.Header[rf.cfg.Key]
@@ -219,7 +227,7 @@ func (rr *RouteRule) ActionRenameData(w http.ResponseWriter, r *http.Request, pa
 	case "tagname":
 		rr.log.Warn().Msgf("Tag  Value Rename Not Supported Yet on rule %s", rr.cfg.Name)
 	default:
-		rr.log.Warn().Msgf("Rename Data key  %d not supported in rule %s", rr.cfg.Key, rr.cfg.Name)
+		rr.log.Warn().Msgf("Rename Data key  %s not supported in rule %s", rr.cfg.Key, rr.cfg.Name)
 	}
 	return nil
 }
@@ -366,6 +374,11 @@ func NewRouteRule(cfg *config.Rule, mode config.EndPType, l *zerolog.Logger, rou
 	return rr, nil
 
 }
+func (rr *RouteRule) Release() {
+	rr.cfg = nil
+	rr.log = nil
+	rr.filter = nil
+}
 
 func (rt *HTTPRoute) DecodePrometheus(w http.ResponseWriter, r *http.Request) (int, models.Points, error) {
 
@@ -511,6 +524,20 @@ func NewHTTPRoute(cfg *config.Route, mode config.EndPType, l *zerolog.Logger, fo
 	rt.DecodeFmt = format
 
 	return rt, nil
+}
+
+func (rt *HTTPRoute) Release() {
+	for _, rf := range rt.filters {
+		rf.Release()
+	}
+	for _, rr := range rt.rules {
+		rr.Release()
+	}
+
+	rt.filters = nil
+	rt.rules = nil
+	rt.cfg = nil
+	rt.log = nil
 }
 
 // return true if any of its condition match

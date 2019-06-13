@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 
 	//	"runtime/pprof"
 	"syscall"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	relayVersion = "0.4.0"
+	relayVersion = "0.5.0"
 )
 
 var (
@@ -29,11 +30,12 @@ var (
 
 	configFile  = flag.String("config", "", "Configuration file to use")
 	logDir      = flag.String("logdir", "", "Default log Directory")
-	verbose     = flag.Bool("v", false, "If set, InfluxDB Relay will log HTTP requests")
 	versionFlag = flag.Bool("version", false, "Print current InfluxDB Relay version")
 
-	relay     *relayservice.Service
+	relaysvc  *relayservice.Service
 	recsignal os.Signal
+	SigMutex  = &sync.RWMutex{}
+	RlyMutex  = &sync.RWMutex{}
 )
 
 func StartRelay() error {
@@ -45,8 +47,6 @@ func StartRelay() error {
 		log.Print(err.Error())
 		return err
 	}
-	//utils.CloseLogFiles()
-	//utils.ResetLogFiles()
 
 	utils.SetLogdir(*logDir)
 	utils.SetVersion(relayVersion)
@@ -54,14 +54,23 @@ func StartRelay() error {
 	backend.SetConfig(cfg)
 	cluster.SetLogdir(*logDir)
 	cluster.SetConfig(cfg)
-	relay = nil
-	relay, err = relayservice.New(cfg, *logDir)
+	RlyMutex.Lock()
+	if relaysvc != nil {
+		relaysvc.Release()
+		relaysvc = nil
+	}
+	utils.CloseLogFiles()
+	utils.ResetLogFiles()
+	relaysvc, err = relayservice.New(cfg, *logDir)
 	if err != nil {
 		log.Print(err)
+		RlyMutex.Unlock()
 		return err
 	}
+	r := relaysvc
+	RlyMutex.Unlock()
 	log.Println("starting relays...")
-	return relay.Run()
+	return r.Run()
 }
 
 func ReloadRelay() {
@@ -73,7 +82,9 @@ func ReloadRelay() {
 	}
 	log.Printf("Reloading Config File %#+v", cfg)
 	//config ok
-	relay.Stop()
+	RlyMutex.Lock()
+	relaysvc.Stop()
+	RlyMutex.Unlock()
 
 }
 
@@ -115,11 +126,15 @@ func main() {
 
 			select {
 			case sig := <-c:
+				SigMutex.RLock()
 				recsignal = sig
+				SigMutex.RUnlock()
 				switch sig {
 				case syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT: // 15,3
 					log.Printf("Received TERM signal")
-					relay.Stop()
+					RlyMutex.RLock()
+					relaysvc.Stop()
+					RlyMutex.RUnlock()
 					log.Printf("Exiting for requested user SIGTERM")
 				case syscall.SIGHUP: // 1
 					log.Printf("Received HUP signal")
@@ -143,10 +158,13 @@ func main() {
 	for {
 		err := StartRelay()
 		if err != nil {
-			log.Print("ERROR on start Relay : %s", err)
+			log.Printf("ERROR on start Relay : %s", err)
 			os.Exit(1)
 		}
-		switch recsignal {
+		SigMutex.Lock()
+		sig := recsignal
+		SigMutex.Unlock()
+		switch sig {
 		case syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT:
 			os.Exit(0)
 		}

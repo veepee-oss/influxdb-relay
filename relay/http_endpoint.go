@@ -51,6 +51,16 @@ func NewHTTPEndpoint(cfg *config.Endpoint, l *zerolog.Logger) (*HTTPEndPoint, er
 
 	return e, nil
 }
+func (e *HTTPEndPoint) Release() {
+
+	for _, r := range e.routes {
+		r.Release()
+	}
+	e.routes = nil
+	e.cfg = nil
+	e.log = nil
+
+}
 
 func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, p *backend.InfluxParams) {
 	//AppendCxtTracePath(r, "endp|READ", e.cfg.URI[0])

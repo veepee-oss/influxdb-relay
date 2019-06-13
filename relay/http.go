@@ -1,17 +1,17 @@
 package relay
 
 import (
-	"crypto/tls"
+	//"crypto/tls"
 	"fmt"
 	"golang.org/x/time/rate"
 
-	"net"
+	//"net"
 	"net/http"
 
 	"strings"
-	"sync/atomic"
 	"time"
 
+	"context"
 	"github.com/rs/zerolog"
 	"github.com/toni-moreno/influxdb-srelay/config"
 	"github.com/toni-moreno/influxdb-srelay/relayctx"
@@ -23,14 +23,14 @@ type HTTP struct {
 	cfg    *config.HTTPConfig
 	schema string
 
-	cert string
-	rp   string
+	rp string
 
 	pingResponseCode    int
 	pingResponseHeaders map[string]string
 
-	closing int64
-	l       net.Listener
+	closing chan bool
+
+	s *http.Server
 
 	Endpoints []*HTTPEndPoint
 
@@ -64,10 +64,10 @@ var (
 // NewHTTP creates a new HTTP relay
 // This relay will most likely be tied to a RelayService
 // and manage a set of HTTPBackends
-func NewHTTP(cfg *config.HTTPConfig) (Relay, error) {
-	h := new(HTTP)
+func NewHTTP(cfg *config.HTTPConfig) (*HTTP, error) {
+	h := &HTTP{}
 	h.cfg = cfg
-
+	h.closing = make(chan bool, 1)
 	//Log output
 
 	h.log = utils.GetConsoleLogFormated(cfg.LogFile, cfg.LogLevel)
@@ -75,13 +75,12 @@ func NewHTTP(cfg *config.HTTPConfig) (Relay, error) {
 
 	h.acclog = utils.GetConsoleLogFormated(cfg.AccessLog, "debug")
 
-	h.cert = cfg.SSLCombinedPem
 	h.rp = cfg.DefaultRetentionPolicy
 
 	// If a cert is specified, this means the user
 	// wants to do HTTPS
 	h.schema = "http"
-	if h.cert != "" {
+	if h.cfg.TLSCert != "" {
 		h.schema = "https"
 	}
 
@@ -112,6 +111,20 @@ func NewHTTP(cfg *config.HTTPConfig) (Relay, error) {
 	return h, nil
 }
 
+func (h *HTTP) Release() {
+	// For each output specified in the config, we are going to create a backend
+	for _, ep := range h.Endpoints {
+		h.log.Info().Msgf("Releasing ENDPOINT %+v", ep.cfg.URI)
+		ep.Release()
+	}
+	h.Endpoints = nil
+	h.log = nil
+	h.acclog = nil
+	h.rateLimiter = nil
+	h.cfg = nil
+	h.s = nil
+}
+
 // Name is the name of the HTTP relay
 // a default name might be generated if it is
 // not specified in the configuration file
@@ -124,40 +137,33 @@ func (h *HTTP) Name() string {
 
 // Run actually launch the HTTP endpoint
 func (h *HTTP) Run() error {
-	var cert tls.Certificate
-	l, err := net.Listen("tcp", h.cfg.BindAddr)
-	if err != nil {
-		return err
+
+	h.s = &http.Server{Addr: h.cfg.BindAddr, Handler: h}
+	var err error
+	if h.cfg.TLSCert != "" {
+		err = h.s.ListenAndServeTLS(h.cfg.TLSCert, h.cfg.TLSKey)
+	} else {
+		err = h.s.ListenAndServe()
 	}
-
-	// support HTTPS
-	if h.cert != "" {
-		cert, err = tls.LoadX509KeyPair(h.cert, h.cert)
-		if err != nil {
-			return err
-		}
-
-		l = tls.NewListener(l, &tls.Config{
-			Certificates: []tls.Certificate{cert},
-		})
-	}
-
-	h.l = l
-
-	h.log.Printf("starting %s relay %q on %v", strings.ToUpper(h.schema), h.Name(), h.cfg.BindAddr)
-
-	err = http.Serve(l, h)
-	if atomic.LoadInt64(&h.closing) != 0 {
-		h.log.Info().Msg("Relay Run, closing....")
-		return nil
+	if err == nil || err == http.ErrServerClosed {
+		start := time.Now()
+		h.log.Info().Msg("Server Listen Stopping...")
+		<-h.closing
+		h.log.Info().Msgf("Server Listen Stopped.. in %s", time.Since(start).String())
 	}
 	return err
 }
 
 // Stop actually stops the HTTP endpoint
 func (h *HTTP) Stop() error {
-	atomic.StoreInt64(&h.closing, 1)
-	return h.l.Close()
+	h.log.Info().Msgf("Shutting down the server...%s", h.Name())
+
+	ctx, _ := context.WithTimeout(context.Background(), 25*time.Second)
+
+	err := h.s.Shutdown(ctx)
+	close(h.closing)
+	h.log.Info().Msg("Server gracefully stopped")
+	return err
 }
 
 func (h *HTTP) processUnknown(w http.ResponseWriter, r *http.Request) {

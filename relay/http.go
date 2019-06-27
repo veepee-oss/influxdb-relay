@@ -220,8 +220,12 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 		}
-		//NOT SERVED YET
-		allMiddlewares(h, ProcessUnknown)(h, w, R)
+		served2 := relayctx.GetServed(R)
+		if !served2 {
+			//NOT SERVED YET
+			allMiddlewares(h, ProcessUnknown)(h, w, R)
+		}
+
 	}
 
 }

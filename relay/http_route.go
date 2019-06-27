@@ -631,6 +631,9 @@ func (rt *HTTPRoute) ProcessRules(w http.ResponseWriter, r *http.Request, p *bac
 		}
 
 	}
-	rt.HandleHTTPResponse(w, r)
+	//only on write , on query respone has been already sent
+	if rt.Type == config.EndPType_WR {
+		rt.HandleHTTPResponse(w, r)
+	}
 
 }

@@ -126,12 +126,6 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 		c.pingResponseCode = cfg.DefaultPingResponse
 	}
 
-	/*c.pingResponseHeaders = make(map[string]string)
-	c.pingResponseHeaders["X-InfluxDB-Version"] = "smart-relay"
-	if c.pingResponseCode != http.StatusNoContent {
-		c.pingResponseHeaders["Content-Length"] = "0"
-	}*/
-
 	// If a RateLimit is specified, create a new limiter
 	if cfg.RateLimit != 0 {
 		if cfg.BurstLimit != 0 {
@@ -152,6 +146,7 @@ func (c *Cluster) handleWriteBase(w http.ResponseWriter, r *http.Request) bool {
 		w.Header().Set("Allow", http.MethodPost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
+			return false
 		} else {
 			relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 			return false
@@ -400,6 +395,7 @@ func (c *Cluster) handleQueryHA(w http.ResponseWriter, r *http.Request) {
 		//w.Header().Set("Allow", http.MethodPost)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
+			return
 		} else {
 			relayctx.JsonResponse(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 			return
@@ -425,7 +421,7 @@ func (c *Cluster) handleQuerySingle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, b *backend.DbBackend) {
-
+	relayctx.AppendCxtTracePath(r, "Backend", b.Name())
 	queryParams := r.URL.Query()
 	c.log.Debug().Msgf("QUERY PARAMS: %+v	", queryParams)
 

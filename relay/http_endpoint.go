@@ -72,7 +72,9 @@ func (e *HTTPEndPoint) ProcessRead(w http.ResponseWriter, r *http.Request, p *ba
 			e.log.Debug().Msgf("Route %s Match!!!!", router.cfg.Name)
 			e.log.Debug().Msgf("Processing READ route %d , %+v", k, router)
 			processed = true
+			relayctx.AppendCxtTracePath(r, "rt", router.cfg.Name)
 			router.ProcessRules(w, r, p)
+			relayctx.SetServedOK(r)
 			break
 		}
 	}

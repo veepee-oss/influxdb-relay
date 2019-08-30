@@ -99,7 +99,7 @@ Architecture description:
 
 * __InfluxCluster__: a set of `DB Backends` working together and the item to route http request to. 
 
-* __HTTP Object__: Is an HTTP listener waiting for HTTP connections, each HTTP Object listens for user configured `HTTP Endpoints` or also administrative tasks `/health`, `/ping`, `/status` or `/ping`
+* __HTTP Input__: Is an HTTP listener waiting for HTTP connections, each HTTP Object listens for user configured `HTTP Endpoints` or also administrative tasks `/health`, `/ping`, `/status` or `/ping`
 * __HTTP Endpoint__: User configured endpoint (tipically `/query` or `/write` on InfluxDB 1.X data) to send "WR" or retrieve "RD" data. Each endpoint has an associated source format (Influx Line Protocol, Influx Query Language, etc). If one query match the user endpoint it begins to check for matching `Routes` in sequential order and only until one route matches.
 * __HTTP Route__: An HTTP Route defines the way to handle the incomming HTTP request that matches the enpoint. The route is only applied if all its `Route Filters` matches and will be handled by each `Route Rule` in sequencial order. If any defined `Route Filters` match the HTTP request its evaluated by the next route.
 * __Route Filter__: A way to define a condition over incomming HTTP or DATA parameters, when condition becomes true the route will be matched.
@@ -246,7 +246,7 @@ This endpoint provides a quick way to get InfluxCluster Backends Data and statis
 
 
 * __Time__ : time what request has been responsed ( and also this log entry has been written)
-* __INF__ : no especial meanning
+* __INF__ : no special meanning
 * __source__: the IP:PORT source address
 * __method__: the HTTP method used (GET/POST/HEAD/....)
 * __user__: the username who did the request

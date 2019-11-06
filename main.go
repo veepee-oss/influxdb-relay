@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/veepee-moc/influxdb-relay/config"
-	"github.com/veepee-moc/influxdb-relay/relayservice"
+	"github.com/strike-team/influxdb-relay/config"
+	"github.com/strike-team/influxdb-relay/relayservice"
 )
 
 const (

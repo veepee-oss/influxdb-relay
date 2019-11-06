@@ -11,7 +11,7 @@ import (
 
 	"github.com/influxdata/influxdb/models"
 
-	"github.com/veepee-moc/influxdb-relay/config"
+	"github.com/strike-team/influxdb-relay/config"
 )
 
 const (

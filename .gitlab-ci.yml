@@ -39,10 +39,10 @@ go-build:
   stage: build
   image: vpgrp/golang:latest
   before_script:
-    - mkdir -p ${GOPATH}/src/github.com/veepee-moc
-    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/veepee-moc/influxdb-relay
+    - mkdir -p ${GOPATH}/src/github.com/strike-team
+    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/strike-team/influxdb-relay
   script:
-    - cd ${GOPATH}/src/github.com/veepee-moc/influxdb-relay
+    - cd ${GOPATH}/src/github.com/strike-team/influxdb-relay
     - go get
     - go build -a -ldflags '-extldflags "-static"' -o influxdb-relay
 
@@ -52,11 +52,11 @@ go-tests:
   stage: test
   image: vpgrp/golang
   before_script:
-    - mkdir -p ${GOPATH}/src/github.com/veepee-moc
-    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/veepee-moc/influxdb-relay
+    - mkdir -p ${GOPATH}/src/github.com/strike-team
+    - ln -fsv ${CI_PROJECT_DIR} ${GOPATH}/src/github.com/strike-team/influxdb-relay
     - go get github.com/stretchr/testify/assert
   script:
-    - cd ${GOPATH}/src/github.com/veepee-moc/influxdb-relay
+    - cd ${GOPATH}/src/github.com/strike-team/influxdb-relay
     - go get
     - go test ./...
 

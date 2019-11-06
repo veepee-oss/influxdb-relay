@@ -12,9 +12,5 @@ github.com/naoina/toml/ast
 github.com/pmezard/go-difflib/difflib
 # github.com/stretchr/testify v1.2.2
 github.com/stretchr/testify/assert
-# github.com/veepee-moc/influxdb-relay v0.0.0-20190821122659-e8f29ff7bf36
-github.com/veepee-moc/influxdb-relay/config
-github.com/veepee-moc/influxdb-relay/relay
-github.com/veepee-moc/influxdb-relay/relayservice
 # golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 golang.org/x/time/rate

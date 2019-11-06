@@ -1,6 +1,6 @@
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/influxdata/influxdb v1.5.4
+# github.com/influxdata/influxdb v1.7.9
 github.com/influxdata/influxdb/models
 github.com/influxdata/influxdb/pkg/escape
 # github.com/naoina/go-stringutil v0.1.0

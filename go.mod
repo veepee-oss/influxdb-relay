@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/influxdata/influxdb v1.5.4
+	github.com/influxdata/influxdb v1.7.9
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/naoina/go-stringutil v0.1.0 // indirect
 	github.com/naoina/toml v0.1.1

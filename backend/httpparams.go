@@ -73,11 +73,13 @@ func (ip *InfluxParams) SetDB(db string) {
 func SplitParamsIQL(r *http.Request) *InfluxParams {
 
 	queryParams := r.URL.Query()
+	ipsource, ipfwd := utils.GetSourceFromRequest(r)
 
 	return &InfluxParams{
 		Header: map[config.RuleKey]string{
 			"authorization":  r.Header.Get("Authorization"),
-			"remote-address": r.RemoteAddr,
+			"remote-address": ipsource,
+			"fwd-address":    ipfwd,
 			"referer":        r.Referer(),
 			"user-agent":     r.UserAgent(),
 			"username":       utils.GetUserFromRequest(r),
@@ -100,11 +102,13 @@ func SplitParamsIQL(r *http.Request) *InfluxParams {
 func SplitParamsILP(r *http.Request) *InfluxParams {
 
 	queryParams := r.URL.Query()
+	ipsource, ipfwd := utils.GetSourceFromRequest(r)
 
 	return &InfluxParams{
 		Header: map[config.RuleKey]string{
 			"authorization":  r.Header.Get("Authorization"),
-			"remote-address": r.RemoteAddr,
+			"remote-address": ipsource,
+			"fwd-address":    ipfwd,
 			"referer":        r.Referer(),
 			"user-agent":     r.UserAgent(),
 			"username":       utils.GetUserFromRequest(r),
@@ -125,11 +129,13 @@ func SplitParamsILP(r *http.Request) *InfluxParams {
 func SplitParamsPRW(r *http.Request) *InfluxParams {
 
 	queryParams := r.URL.Query()
+	ipsource, ipfwd := utils.GetSourceFromRequest(r)
 
 	return &InfluxParams{
 		Header: map[config.RuleKey]string{
 			"authorization":  r.Header.Get("Authorization"),
-			"remote-address": r.RemoteAddr,
+			"remote-address": ipsource,
+			"fwd-address":    ipfwd,
 			"referer":        r.Referer(),
 			"user-agent":     r.UserAgent(),
 			"username":       utils.GetUserFromRequest(r),

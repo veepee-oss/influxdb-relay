@@ -30,6 +30,23 @@ func SetVersion(v string) {
 	relayVersion = v
 }
 
+func GetSourceFromRequest(r *http.Request) (string, string) {
+	ipAddress := r.RemoteAddr
+	fwdAddress := r.Header.Get("X-Forwarded-For") // capitalisation doesn't matter
+	if fwdAddress != "" {
+		// Got X-Forwarded-For
+		ipAddress = fwdAddress // If it's a single IP, then awesome!
+
+		// If we got an array... grab the first IP
+		ips := strings.Split(fwdAddress, ", ")
+		if len(ips) > 1 {
+			ipAddress = ips[0]
+		}
+		return ipAddress, fwdAddress
+	}
+	return ipAddress, ipAddress
+}
+
 func ChanToSlice(ch interface{}) interface{} {
 	chv := reflect.ValueOf(ch)
 	slv := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(ch).Elem()), 0, 0)

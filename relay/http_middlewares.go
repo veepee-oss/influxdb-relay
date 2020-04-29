@@ -66,6 +66,7 @@ func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 		next(h, w, r)
 		rc := relayctx.GetRelayContext(r)
 		if rc.Served {
+			_, ipfwd := utils.GetSourceFromRequest(r)
 			h.acclog.Info().
 				Str("trace-route", rc.TraceRoute.String()).
 				Str("referer", r.Referer()).
@@ -79,7 +80,7 @@ func (h *HTTP) logMiddleWare(next relayHandlerFunc) relayHandlerFunc {
 				Int("status", rc.SentHTTPStatus).
 				Str("method", r.Method).
 				Str("user", utils.GetUserFromRequest(r)). // <---allready computed from http_params !! REVIEW!!!
-				Str("source", r.RemoteAddr).
+				Str("source", ipfwd).                     // Here log all forwarders
 				Str("user-agent", r.UserAgent()).
 				Msg("")
 		}

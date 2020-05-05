@@ -96,6 +96,7 @@ func NewCluster(cfg *config.Influxcluster) (*Cluster, error) {
 		c.QueryHTTP = c.handleQuerySingle
 	}
 
+	c.queryRouterEndpointAPI = cfg.QueryRouterEndpointAPI
 	//check url is ok //pending a first query
 	for _, r := range c.queryRouterEndpointAPI {
 		_, err := url.ParseRequestURI(r)
@@ -431,6 +432,7 @@ func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, b *backend
 	resp, err := b.Query(paramString, authHeader, "query")
 	if err != nil {
 		c.log.Error().Msgf("Problem posting to cluster %s backend %s: %s", c.cfg.Name, b.Name(), err)
+		return
 	}
 
 	for name, values := range resp.Header {

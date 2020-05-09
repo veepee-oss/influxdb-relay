@@ -1,0 +1,71 @@
+#!/bin/sh
+
+set -e
+
+[ -f /etc/default/influxdb-srelay ] && . /etc/default/influxdb-srelay
+
+startInfluxdbSrelay() {
+  if [ -x /bin/systemctl ]; then
+    /bin/systemctl daemon-reload
+    /bin/systemctl restart influxdb-srelay
+	elif [ -x "/etc/init.d/influxdb-srelay" ]; then
+		if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+			invoke-rc.d influxdb-srelay restart || true
+		else
+			/etc/init.d/influxdb-srelay restart || true
+		fi
+	fi
+}
+
+case "$1" in
+	configure)
+	[ -z "$INFLUXDB_SRELAY_USER" ] && INFLUXDB_SRELAY_USER="influxdb-srelay"
+	[ -z "$INFLUXDB_SRELAY_GROUP" ] && INFLUXDB_SRELAY_GROUP="influxdb-srelay"
+	if ! getent group "$INFLUXDB_SRELAY_GROUP" > /dev/null 2>&1 ; then
+	    addgroup --system "$INFLUXDB_SRELAY_GROUP" --quiet
+	fi
+	if ! id $INFLUXDB_SRELAY_USER > /dev/null 2>&1 ; then
+	    adduser --system --home /usr/share/influxdb-srelay --no-create-home \
+		--ingroup "$INFLUXDB_SRELAY_GROUP" --disabled-password --shell /bin/false \
+		"$INFLUXDB_SRELAY_USER"
+	fi
+
+  if [ -x /opt/influxdb-srelay/ ]; then
+    echo "### Upgrading Notice ### "
+    echo "-- New influxdb-srelay install home is /usr/share/influxdb-srelay"
+    #echo "-- Please move sqlite3 database to /var/lib/influxdb-srelay/"
+    echo "-- Notice: service name && binary changed to influxdb-srelay"
+  fi
+
+	# Set user permissions on /var/log/influxdb-srelay, /var/lib/influxdb-srelay
+	mkdir -p /var/log/influxdb-srelay /var/lib/influxdb-srelay
+	chown -R $INFLUXDB_SRELAY_USER:$INFLUXDB_SRELAY_GROUP /var/log/influxdb-srelay /var/lib/influxdb-srelay
+	chmod 755 /var/log/influxdb-srelay /var/lib/influxdb-srelay
+
+	# configuration files should not be modifiable by influxdb-srelay user, as this can be a security issue
+	chown -Rh root:$INFLUXDB_SRELAY_GROUP /etc/influxdb-srelay/*
+	chmod 755 /etc/influxdb-srelay
+	find /etc/influxdb-srelay -type f -exec chmod 640 {} ';'
+	find /etc/influxdb-srelay -type d -exec chmod 755 {} ';'
+
+	# if $2 is set, this is an upgrade
+	if ( [ -n $2 ] && [ "$RESTART_ON_UPGRADE" = "true" ] ) ; then
+		startInfluxdbSrelay
+	# this is a fresh installation
+	elif [ -z $2 ] ; then
+        if [ -x /bin/systemctl ] ; then
+            echo "### NOT starting on installation, please execute the following statements to configure influxdb-srelay to start automatically using systemd"
+            echo " sudo /bin/systemctl daemon-reload"
+            echo " sudo /bin/systemctl enable influxdb-srelay"
+            echo "### You can start influxdb-srelay by executing"
+            echo " sudo /bin/systemctl start influxdb-srelay"
+
+        elif [ -x /usr/sbin/update-rc.d ] ; then
+            echo "### NOT starting influxdb-srelay by default on bootup, please execute"
+            echo " sudo update-rc.d influxdb-srelay defaults 95 10"
+            echo "### In order to start influxdb-srelay, execute"
+            echo " sudo service influxdb-srelay start"
+        fi
+	fi
+	;;
+esac

@@ -1,0 +1,25 @@
+[Unit]
+Description=Influxdb Smart Relay
+Documentation=http://github.com/toni-moreno/influxdb-srelay
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=/etc/default/influxdb-srelay
+User=influxdb-srelay
+Group=influxdb-srelay
+Type=simple
+Restart=on-failure
+WorkingDirectory=/usr/share/influxdb-srelay
+ExecStart=/usr/sbin/influxdb-srelay                    \
+                            --pidfile=${PID_FILE}     \
+                            --config=${CONF_FILE}     \
+                            --logs=${LOG_DIR}         \
+                            --home=${HOME_DIR}        \
+                            --data=${DATA_DIR}
+LimitNOFILE=10000
+TimeoutStopSec=20
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

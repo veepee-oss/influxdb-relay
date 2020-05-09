@@ -3,10 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"sync"
+	"time"
 
 	//	"runtime/pprof"
 	"syscall"
@@ -18,8 +22,15 @@ import (
 	"github.com/toni-moreno/influxdb-srelay/utils"
 )
 
-const (
-	relayVersion = "0.6.0"
+var (
+	// Version is the app X.Y.Z version
+	Version string
+	// Commit is the git commit sha1
+	Commit string
+	// Branch is the git branch
+	Branch string
+	// BuildStamp is the build timestamp
+	BuildStamp string
 )
 
 var (
@@ -28,9 +39,15 @@ var (
 		flag.PrintDefaults()
 	}
 
+	pidFile     = flag.String("pidfile", "", "path to pid file")
+	homeDir     = flag.String("home", "", "path to Home directory(not used yet)")
+	dataDir     = flag.String("data", "", "path to Data directory(not used yet)")
 	configFile  = flag.String("config", "", "Configuration file to use")
-	logDir      = flag.String("logdir", "", "Default log Directory")
+	logDdep     = flag.String("logdir", "", "Default log Directory (deprecated)")
+	logD        = flag.String("logs", "", "Default log Directory ")
 	versionFlag = flag.Bool("version", false, "Print current InfluxDB Relay version")
+
+	logDir string
 
 	relaysvc  *relayservice.Service
 	recsignal os.Signal
@@ -38,21 +55,39 @@ var (
 	RlyMutex  = &sync.RWMutex{}
 )
 
+func writePIDFile() {
+	if *pidFile == "" {
+		return
+	}
+
+	// Ensure the required directory structure exists.
+	err := os.MkdirAll(filepath.Dir(*pidFile), 0700)
+	if err != nil {
+		log.Fatal(3, "Failed to verify pid directory", err)
+	}
+
+	// Retrieve the PID and write it.
+	pid := strconv.Itoa(os.Getpid())
+	if err := ioutil.WriteFile(*pidFile, []byte(pid), 0644); err != nil {
+		log.Fatal(3, "Failed to write pidfile", err)
+	}
+}
+
 func StartRelay() error {
 	//Load Config File
 	var err error
 	cfg, err := config.LoadConfigFile(*configFile)
 	if err != nil {
-		log.Println("Version: " + relayVersion)
+		log.Println("Version: ", Version)
 		log.Print(err.Error())
 		return err
 	}
 
-	utils.SetLogdir(*logDir)
-	utils.SetVersion(relayVersion)
-	backend.SetLogdir(*logDir)
+	utils.SetLogdir(logDir)
+	utils.SetVersion(Version)
+	backend.SetLogdir(logDir)
 	backend.SetConfig(cfg)
-	cluster.SetLogdir(*logDir)
+	cluster.SetLogdir(logDir)
 	cluster.SetConfig(cfg)
 	RlyMutex.Lock()
 	if relaysvc != nil {
@@ -61,7 +96,7 @@ func StartRelay() error {
 	}
 	utils.CloseLogFiles()
 	utils.ResetLogFiles()
-	relaysvc, err = relayservice.New(cfg, *logDir)
+	relaysvc, err = relayservice.New(cfg, logDir)
 	if err != nil {
 		log.Print(err)
 		RlyMutex.Unlock()
@@ -77,7 +112,7 @@ func ReloadRelay() {
 	//validate conf
 	cfg, err := config.LoadConfigFile(*configFile)
 	if err != nil {
-		log.Printf("Error on reload File [%s]: ERR: %s", configFile, err)
+		log.Printf("Error on reload File [%s]: ERR: %s", *configFile, err)
 		return
 	}
 	log.Printf("Reloading Config File %#+v", cfg)
@@ -95,9 +130,12 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
+	writePIDFile()
+
 	if *versionFlag {
-		fmt.Println("influxdb-srelay version " + relayVersion)
-		return
+		t, _ := strconv.ParseInt(BuildStamp, 10, 64)
+		fmt.Printf("influxdb-srelay v%s (git: %s ) built at [%s]\n", Version, Commit, time.Unix(t, 0).Format("2006-01-02 15:04:05"))
+		os.Exit(0)
 	}
 
 	// Configuration file is mandatory
@@ -107,16 +145,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(*logDir) == 0 {
-		*logDir, err = os.Getwd()
+	switch {
+	case len(*logD) > 0:
+		logDir = *logD
+	case len(*logDdep) > 0: //deprecated config
+		logDir = *logDdep
+	default:
+		logDir, err = os.Getwd()
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else {
-		//check if exist and
-		if _, err := os.Stat(*logDir); os.IsNotExist(err) {
-			os.Mkdir(*logDir, 0755)
-		}
+	}
+
+	if _, err := os.Stat(logDir); os.IsNotExist(err) {
+		os.Mkdir(logDir, 0755)
 	}
 
 	c := make(chan os.Signal)

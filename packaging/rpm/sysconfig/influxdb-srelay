@@ -1,0 +1,17 @@
+INFLUXDB_SRELAY_USER=influxdb-srelay
+
+INFLUXDB_SRELAY_GROUP=influxdb-srelay
+
+INFLUXDB_SRELAY_HOME=/usr/share/influxdb-srelay
+
+LOG_DIR=/var/log/influxdb-srelay
+
+DATA_DIR=/var/lib/influxdb-srelay
+
+MAX_OPEN_FILES=10000
+
+CONF_DIR=/etc/influxdb-srelay
+
+CONF_FILE=/etc/influxdb-srelay/influxdb-srelay.conf
+
+RESTART_ON_UPGRADE=false

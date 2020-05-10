@@ -5,7 +5,9 @@
 
 Debian | RedHat |Docker
 -------|--------|------
-[deb](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay_latest_amd64.deb) - [signature](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay_latest_amd64.deb.sha1)|[rpm](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay-latest.x86_64.rpm) - [signature](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay-latest.x86_64.rpm.sha1)| `docker run -d --name=influxdb-srelay_instance00 -p 9096:9096 -v /mylocal/conf:/opt/influxdb-srelay/conf -v /mylocal/log:/opt/influxdb-srelay/log  tonimoreno/influxdb-srelay`
+[deb](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay_latest_amd64.deb) - [signature](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay_latest_amd64.deb.sha1)|[rpm](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay-latest.x86_64.rpm) - [signature](http://influxdb-srelay-rel.s3.amazonaws.com/builds/influxdb-srelay-latest.x86_64.rpm.sha1)| `docker run -d --name=influxdb-srelay_instance00 -p 9096:9096 -v /mylocal/conf:/etc/influxdb-srelay/conf -v /mylocal/log:/var/log/influxdb-srelay/  tonimoreno/influxdb-srelay`
+
+Download all binary and code releases [here](https://github.com/toni-moreno/influxdb-srelay/releases)
 
 [![License][license-img]][license-href]
 

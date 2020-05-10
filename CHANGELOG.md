@@ -1,4 +1,4 @@
-# v 0.6.1 (unreleased)
+# v 0.6.1 (2020-05-10)
 
 ## New features
 

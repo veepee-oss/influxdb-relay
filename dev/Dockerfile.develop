@@ -1,9 +1,0 @@
-FROM golang
-
-WORKDIR /app
-
-COPY influxdb-srelay .
-COPY test.toml .
-
-EXPOSE 9096
-CMD ["./influxdb-srelay", "-config", "test.toml", "-v"]

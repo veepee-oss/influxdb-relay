@@ -37,41 +37,30 @@ Other versions will probably work but are untested.
 
 ## Setup
 
-### Go
+### From Sources
 
-Download the daemon into your `$GOPATH` and install it in `/usr/sbin`.
-
-```sh
-go get -u github.com/toni-moreno/influxdb-srelay
-cp ${GOPATH}/bin/influxdb-srelay /usr/bin/influxdb-srelay
-chmod 755 /usr/bin/influxdb-srelay
-```
-
-Create the configuration file in `/etc/influxdb-srelay`.
 
 ```sh
-mkdir -p /etc/influxdb-srelay
-mkdir -p /var/log/influxdb-srelay
-cp ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay/examples/sample.influxdb-srelay.conf \
-   /etc/influxdb-srelay/influxdb-srelay.conf
+git clone  https://github.com/toni-moreno/influxdb-srelay
+cd influxdb-srelay
+go run build.go build
+./bin/influxdb-srelay -config ./examples/sample.influxdb-srelay.conf -logs ./log
 ```
+
 
 ### Docker
 
 Build your own image need for docker-ce > 17.05 ( or equivalent ee version )
 
 ```sh
-git clone git@github.com:toni-moreno/influxdb-srelay
+git clone  https://github.com/toni-moreno/influxdb-srelay
 cd influxdb-srelay
-docker build \
-       --file Dockerfile \
-       --rm \
-       --tag influxdb-srelay:latest \
-       .
+make -f Makefile.docker
+
 docker run \
        --volume /path/to/influxdb-srelay.conf:/etc/influxdb-srelay/influxdb-srelay.conf
        --rm
-       influxdb-srelay:latest
+       tonimoreno/influxdb-srelay:latest
 ```
 
 or
@@ -264,11 +253,6 @@ This endpoint provides a quick way to get InfluxCluster Backends Data and statis
 
 
 
-
-
-
-
-
 ## Limitations
 
 So far,this is compatible with Debian, RedHat, and other derivatives.
@@ -278,25 +262,13 @@ So far,this is compatible with Debian, RedHat, and other derivatives.
 Please read carefully [CONTRIBUTING.md][contribute-href] before making a merge
 request.
 
-Clone repository into your `$GOPATH`.
-
 ```sh
-mkdir -p ${GOPATH}/src/github.com/toni-moreno
-cd ${GOPATH}/src/github.com/toni-moreno
 git clone git@github.com:toni-moreno/influxdb-srelay
-```
-
-Enter the directory and build the daemon.
-
-```sh
-cd ${GOPATH}/src/github.com/toni-moreno/influxdb-srelay
-go build -a -ldflags '-extldflags "-static"' -o influxdb-srelay
+go run build.go build
 ```
 
 ## Miscellaneous
 
-
 [license-img]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-href]: LICENSE
-[overview-href]: https://github.com/influxdata/influxdb-relay
 [contribute-href]: CONTRIBUTING.md

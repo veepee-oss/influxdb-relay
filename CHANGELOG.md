@@ -1,19 +1,20 @@
 # v 0.6.1 (unreleased)
 
+## New features
+
+* Added new building system for binary,rpm/dev packages and also docker image
+* Dockerfile now build image from local sources not from remote repo
+* Added new -pidfile and -logs options ( -logdir still running but will be removed in the future )
 
 ## fixes
 
 * Fix #28,#22
 
-
-
 # v 0.6.0 (2019-06-27)
-
 
 ## fixes
 
 * Fix #19,#18
-
 
 # v 0.5.0 (2019-06-13)
 

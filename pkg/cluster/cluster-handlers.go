@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/toni-moreno/influxdb-srelay/backend"
-	"github.com/toni-moreno/influxdb-srelay/relayctx"
-	"github.com/toni-moreno/influxdb-srelay/utils"
+	"github.com/toni-moreno/influxdb-srelay/pkg/backend"
+	"github.com/toni-moreno/influxdb-srelay/pkg/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/pkg/utils"
 )
 
 func (c *Cluster) HandlePing(w http.ResponseWriter, r *http.Request) {

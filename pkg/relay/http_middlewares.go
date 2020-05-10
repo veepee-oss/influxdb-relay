@@ -7,8 +7,8 @@ import (
 
 	"time"
 
-	"github.com/toni-moreno/influxdb-srelay/relayctx"
-	"github.com/toni-moreno/influxdb-srelay/utils"
+	"github.com/toni-moreno/influxdb-srelay/pkg/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/pkg/utils"
 )
 
 func allMiddlewares(h *HTTP, handlerFunc relayHandlerFunc) relayHandlerFunc {

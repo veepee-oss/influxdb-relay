@@ -8,7 +8,7 @@ import (
 
 	//"github.com/gogo/protobuf/types"
 	"github.com/influxdata/influxdb/models"
-	"github.com/toni-moreno/influxdb-srelay/prometheus/remote"
+	"github.com/toni-moreno/influxdb-srelay/pkg/prometheus/remote"
 )
 
 const (

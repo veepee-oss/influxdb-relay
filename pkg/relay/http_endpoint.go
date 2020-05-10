@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/rs/zerolog"
-	"github.com/toni-moreno/influxdb-srelay/backend"
-	"github.com/toni-moreno/influxdb-srelay/config"
-	"github.com/toni-moreno/influxdb-srelay/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/pkg/backend"
+	"github.com/toni-moreno/influxdb-srelay/pkg/config"
+	"github.com/toni-moreno/influxdb-srelay/pkg/relayctx"
 )
 
 type HTTPEndPoint struct {

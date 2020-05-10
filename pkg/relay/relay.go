@@ -2,8 +2,9 @@ package relay
 
 import (
 	"fmt"
-	"github.com/toni-moreno/influxdb-srelay/cluster"
-	"github.com/toni-moreno/influxdb-srelay/config"
+
+	"github.com/toni-moreno/influxdb-srelay/pkg/cluster"
+	"github.com/toni-moreno/influxdb-srelay/pkg/config"
 )
 
 // Relay is an HTTP or UDP endpoint

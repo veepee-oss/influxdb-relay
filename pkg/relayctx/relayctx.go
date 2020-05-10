@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/toni-moreno/influxdb-srelay/backend"
 	"net/http"
 	"time"
+
+	"github.com/toni-moreno/influxdb-srelay/pkg/backend"
 )
 
 type RelayRequestCtx struct {

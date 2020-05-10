@@ -62,12 +62,12 @@ func main() {
 	for _, cmd := range flag.Args() {
 		switch cmd {
 		case "build":
-			pkg := "./"
+			pkg := "./pkg/"
 			clean()
 			build(pkg, []string{}, []string{})
 
 		case "build-static":
-			pkg := "./"
+			pkg := "./pkg/"
 			clean()
 			build(pkg, []string{}, []string{"-linkmode", "external", "-extldflags", "-static"})
 			//"-linkmode external -extldflags -static"

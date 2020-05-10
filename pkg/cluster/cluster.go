@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"github.com/toni-moreno/influxdb-srelay/config"
+	"github.com/toni-moreno/influxdb-srelay/pkg/config"
 )
 
 var (

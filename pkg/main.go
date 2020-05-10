@@ -15,11 +15,11 @@ import (
 	//	"runtime/pprof"
 	"syscall"
 
-	"github.com/toni-moreno/influxdb-srelay/backend"
-	"github.com/toni-moreno/influxdb-srelay/cluster"
-	"github.com/toni-moreno/influxdb-srelay/config"
-	"github.com/toni-moreno/influxdb-srelay/relayservice"
-	"github.com/toni-moreno/influxdb-srelay/utils"
+	"github.com/toni-moreno/influxdb-srelay/pkg/backend"
+	"github.com/toni-moreno/influxdb-srelay/pkg/cluster"
+	"github.com/toni-moreno/influxdb-srelay/pkg/config"
+	"github.com/toni-moreno/influxdb-srelay/pkg/relayservice"
+	"github.com/toni-moreno/influxdb-srelay/pkg/utils"
 )
 
 var (

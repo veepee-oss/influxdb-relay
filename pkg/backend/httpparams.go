@@ -8,8 +8,8 @@ import (
 
 	"github.com/influxdata/influxdb/models"
 
-	"github.com/toni-moreno/influxdb-srelay/config"
-	"github.com/toni-moreno/influxdb-srelay/utils"
+	"github.com/toni-moreno/influxdb-srelay/pkg/config"
+	"github.com/toni-moreno/influxdb-srelay/pkg/utils"
 )
 
 type InfluxParams struct {

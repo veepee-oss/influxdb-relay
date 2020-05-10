@@ -2,9 +2,10 @@ package backend
 
 import (
 	"errors"
-	"github.com/toni-moreno/influxdb-srelay/config"
 	"net/http"
 	"time"
+
+	"github.com/toni-moreno/influxdb-srelay/pkg/config"
 )
 
 var (

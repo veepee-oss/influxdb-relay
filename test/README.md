@@ -6,7 +6,14 @@ Telegraf sending metrics to 3 diferent databases;
 * testdb_linux
 * testdb_docker   
 
+
 ```
+#build srelay  image from source
+
+docker-compose build
+
+# start relay and cluster nodes
+
 docker-compose up -d relay influxdb-a influxdb-b
 
 # check relay is up and running
@@ -26,6 +33,10 @@ curl   http://localhost:9096/health/cluster_linux
 curl -i  -XPOST http://localhost:9096/admin/cluster_linux --data-urlencode "q=CREATE DATABASE testdb_telegraf"
 curl -i  -XPOST http://localhost:9096/admin/cluster_linux --data-urlencode "q=CREATE DATABASE testdb_linux"
 curl -i  -XPOST http://localhost:9096/admin/cluster_linux --data-urlencode "q=CREATE DATABASE testdb_docker"
+
+# initialize telegraf and grafana also
+
+docker-compose up -d 
 ```
 
 # review data

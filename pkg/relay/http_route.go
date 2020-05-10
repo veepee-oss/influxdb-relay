@@ -16,13 +16,13 @@ import (
 	"github.com/golang/snappy"
 	"github.com/influxdata/influxdb/models"
 
-	"github.com/toni-moreno/influxdb-srelay/backend"
-	"github.com/toni-moreno/influxdb-srelay/config"
-	"github.com/toni-moreno/influxdb-srelay/relayctx"
-	"github.com/toni-moreno/influxdb-srelay/utils"
+	"github.com/toni-moreno/influxdb-srelay/pkg/backend"
+	"github.com/toni-moreno/influxdb-srelay/pkg/config"
+	"github.com/toni-moreno/influxdb-srelay/pkg/relayctx"
+	"github.com/toni-moreno/influxdb-srelay/pkg/utils"
 
-	"github.com/toni-moreno/influxdb-srelay/prometheus"
-	"github.com/toni-moreno/influxdb-srelay/prometheus/remote"
+	"github.com/toni-moreno/influxdb-srelay/pkg/prometheus"
+	"github.com/toni-moreno/influxdb-srelay/pkg/prometheus/remote"
 )
 
 type RouteFilter struct {

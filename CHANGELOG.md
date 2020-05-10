@@ -1,3 +1,14 @@
+# v 0.6.2 (unreleased)
+
+## New features
+
+* Added testing env on source package.
+* reestructured package sources
+
+## fixes
+
+* 
+
 # v 0.6.1 (2020-05-10)
 
 ## New features
@@ -9,6 +20,10 @@
 ## fixes
 
 * Fix #28,#22
+
+## Breaking changes
+
+* rpm, deb packages are completely rrewrited, default log/conf and other file and directory places have changed and **a simple package upgrade may not work**, we suggest completely remove old package and after install the new (previous backup your configuration files) after that copy your old config file and place  on the default conf dir `/etc/influxdb-srelay` or whenever you need you could set as environment var in your `/etc/default/influxdb-srelay` or `/etc/sysconfig/influxdb-srelay` config file. If any other issues please open a Bug in our site
 
 # v 0.6.0 (2019-06-27)
 

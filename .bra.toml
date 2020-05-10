@@ -1,7 +1,7 @@
 [run]
 init_cmds = [
-  ["go", "build", "-race","-o", "./build/influxdb-srelay", "."],
-	["./build/influxdb-srelay", "-config", "./examples/influxdb-srelay.conf", "-logdir","./logs"]
+  ["go", "build", "-race","-o", "./build/influxdb-srelay", "./pkg/"],
+	["./build/influxdb-srelay", "-config", "./examples/influxdb-srelay.conf", "-logs","./logs"]
 ]
 watch_all = true
 watch_dirs = [
@@ -10,6 +10,6 @@ watch_dirs = [
 watch_exts = [".go", ".conf"]
 build_delay = 1500
 cmds = [
-  ["go", "build", "-race","-o", "./bin/syncflux", "./pkg/"],
-	["./build/influxdb-srelay","-config","./examples/influxdb-srelay.conf","-logdir","./logs"]
+  ["go", "build", "-race","-o", "./build/influxdb-srelay", "./pkg/"],
+	["./build/influxdb-srelay","-config","./examples/influxdb-srelay.conf","-logs","./logs"]
 ]

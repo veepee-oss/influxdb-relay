@@ -1,0 +1,59 @@
+version: '3'
+services:
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana:/etc/grafana/provisioning
+    environment:
+      - GF_ANALITICS_REPORTING_ENABLED=false
+    ports:
+      - 3000:3000
+  relay:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    ports:
+      - 9096:9096
+    volumes:
+      - ./relay.conf:/etc/influxdb-srelay/influxdb-srelay.conf:ro
+    depends_on: 
+      - influxdb-a
+      - influxdb-b
+  
+  influxdb-a:
+    image: influxdb:1.8
+    ports:
+      - 8086:8086
+    volumes:
+      - influxdb-a-data:/var/lib/influxdb
+  
+  influxdb-b:
+    image: influxdb:1.8
+    ports: 
+      - 8087:8086
+    volumes:
+      - influxdb-b-data:/var/lib/influxdb
+
+  telegraf:
+    image: telegraf:latest
+    hostname: telegraf
+    environment:
+      - HOSTNAME=telegraf
+      - HOST_MOUNT_PREFIX=/hostfs
+      - HOST_PROC=/hostfs/proc
+      - MONITOR_HOST=http://relay:9096
+      - TELEGRAF_MONITOR_DATABASE=testdb_telegraf
+      - LINUX_MONITOR_DATABASE=testdb_linux
+      - DOCKER_MONITOR_DATABASE=testdb_docker      
+    volumes:
+      - /:/hostfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf
+    depends_on: 
+      - relay
+
+volumes:
+  influxdb-a-data:
+  influxdb-b-data:
+  grafana-data:

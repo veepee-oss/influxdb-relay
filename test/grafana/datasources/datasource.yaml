@@ -1,0 +1,112 @@
+
+apiVersion: 1
+
+datasources:
+
+  - name: Influxdb-relay(testdb_telegraf)
+    type: influxdb
+    access: proxy
+    database: testdb_telegraf
+    user: admin
+    url: http://relay:9096
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: influxdb-node-a(testdb_telegraf)
+    type: influxdb
+    access: proxy
+    database: testdb_telegraf
+    user: admin
+    url: http://influxdb-a:8086
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: influxdb-node-b(testdb_telegraf)
+    type: influxdb
+    access: proxy
+    database: testdb_telegraf
+    user: admin
+    url: http://influxdb-b:8086
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: Influxdb-relay(testdb_linux)
+    type: influxdb
+    access: proxy
+    database: testdb_linux
+    user: admin
+    url: http://relay:9096
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: influxdb-node-a(testdb_linux)
+    type: influxdb
+    access: proxy
+    database: testdb_linux
+    user: admin
+    url: http://influxdb-a:8086
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: influxdb-node-b(testdb_linux)
+    type: influxdb
+    access: proxy
+    database: testdb_linux
+    user: admin
+    url: http://influxdb-b:8086
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: Influxdb-relay(testdb_docker)
+    type: influxdb
+    access: proxy
+    database: testdb_docker
+    user: admin
+    url: http://relay:9096
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: influxdb-node-a(testdb_docker)
+    type: influxdb
+    access: proxy
+    database: testdb_docker
+    user: admin
+    url: http://influxdb-a:8086
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true
+
+  - name: influxdb-node-b(testdb_docker)
+    type: influxdb
+    access: proxy
+    database: testdb_docker
+    user: admin
+    url: http://influxdb-b:8086
+    jsonData:
+      timeInterval: "15s"
+    secureJsonData:
+      password: admin
+    editable: true

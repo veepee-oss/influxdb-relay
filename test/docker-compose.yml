@@ -7,14 +7,13 @@ services:
       - ./grafana:/etc/grafana/provisioning
     environment:
       - GF_ANALITICS_REPORTING_ENABLED=false
+      - GF_INSTALL_PLUGINS=grafana-influxdb-flux-datasource
     ports:
       - 3000:3000
   relay:
     build:
       context: ../
       dockerfile: Dockerfile
-    ports:
-      - 9096:9096
     volumes:
       - ./relay.conf:/etc/influxdb-srelay/influxdb-srelay.conf:ro
     depends_on: 
@@ -27,6 +26,8 @@ services:
       - 8086:8086
     volumes:
       - influxdb-a-data:/var/lib/influxdb
+    environment: 
+      - INFLUXDB_HTTP_FLUX_ENABLED=true
   
   influxdb-b:
     image: influxdb:1.8
@@ -34,7 +35,9 @@ services:
       - 8087:8086
     volumes:
       - influxdb-b-data:/var/lib/influxdb
-
+    environment: 
+      - INFLUXDB_HTTP_FLUX_ENABLED=true
+    
   telegraf:
     image: telegraf:latest
     hostname: telegraf
@@ -42,7 +45,7 @@ services:
       - HOSTNAME=telegraf
       - HOST_MOUNT_PREFIX=/hostfs
       - HOST_PROC=/hostfs/proc
-      - MONITOR_HOST=http://relay:9096
+      - MONITOR_HOST=${RELAY}
       - TELEGRAF_MONITOR_DATABASE=testdb_telegraf
       - LINUX_MONITOR_DATABASE=testdb_linux
       - DOCKER_MONITOR_DATABASE=testdb_docker      

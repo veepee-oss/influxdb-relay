@@ -47,3 +47,18 @@ http://localhost:3000/d/TEST_INFLUXDB_SRELAY_DASHBOARD/test_influxdb_srelay_dash
 
 
 ![dashboard](./test_dashboard.png)
+
+# develop ant test
+
+Change your .env RELAY variable from `http://relay:9096` (relay inside docker), to `http://<YOUR_IP>:9096`.
+
+Restart to route metrics to a localy started relay
+
+```
+docker-compose up -d
+```
+Start relay with bra (it will execute `.bra.toml` commands and will restart relay on each change)
+
+```
+bra run
+```

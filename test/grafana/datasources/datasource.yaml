@@ -110,3 +110,54 @@ datasources:
     secureJsonData:
       password: admin
     editable: true
+
+  - name: Flux-relay(testdb_linux)
+    type: grafana-influxdb-flux-datasource
+    access: proxy
+    basicAuth: true
+    basicAuthUser: admin
+    url: http://relay:9096
+    jsonData:
+      timeInterval: "15s"
+      bucket: testdb_linux
+      url: http://relay:9096
+    secureJsonData:
+      password: admin
+      basicAuthPassword: "admin"
+    secureJsonFields:
+      basicAuthPassword: true
+    editable: true
+
+  - name: Flux-node-a(testdb_linux)
+    type: grafana-influxdb-flux-datasource
+    access: proxy
+    basicAuth: true
+    basicAuthUser: admin
+    url: http://influxdb-a:8086
+    jsonData:
+      timeInterval: "15s"
+      bucket: testdb_linux
+      url: http://influxdb-a:8086
+    secureJsonData:
+      password: admin
+      basicAuthPassword: "admin"
+    secureJsonFields:
+      basicAuthPassword: true
+    editable: true
+
+  - name: Flux-node-b(testdb_linux)
+    type: grafana-influxdb-flux-datasource
+    access: proxy
+    basicAuth: true
+    basicAuthUser: admin
+    url: http://influxdb-b:8086
+    jsonData:
+      timeInterval: "15s"
+      bucket: testdb_linux
+      url: http://influxdb-b:8086
+    secureJsonData:
+      password: admin
+      basicAuthPassword: "admin"
+    secureJsonFields:
+      basicAuthPassword: true
+    editable: true

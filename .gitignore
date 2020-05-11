@@ -1,7 +1,5 @@
 .idea/
 *.swp
-build
-build/*
 bin/*
 dist/*
 pkg

@@ -55,10 +55,14 @@ Change your .env RELAY variable from `http://relay:9096` (relay inside docker), 
 Restart to route metrics to a localy started relay
 
 ```
+cd test
 docker-compose up -d
+sed -i  's|http://relay:9096|http://<YOUR_IP>:9096|g' grafana/datasources/datasource.yam
+docker-compose restart grafana
 ```
 Start relay with bra (it will execute `.bra.toml` commands and will restart relay on each change)
 
 ```
+cd ..
 bra run
 ```

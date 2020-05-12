@@ -4,6 +4,7 @@
 
 * Added testing env on source package.
 * reestructured package sources
+* updated zerolog,protobuf, influxdb dependencies
 
 ## fixes
 

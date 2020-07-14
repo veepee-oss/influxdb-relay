@@ -82,7 +82,7 @@ func (r *retryBuffer) Post(buf []byte, query string, auth string, endpoint strin
 	return &ResponseData{StatusCode: http.StatusAccepted}, err
 }
 
-func (r *retryBuffer) Query(query string, auth string, endpoint string) (*http.Response, error) {
+func (r *retryBuffer) Query(method string, query string, auth string, endpoint string, body []byte) (*http.Response, error) {
 	return nil, nil
 }
 

@@ -44,6 +44,7 @@ docker-compose up -d
 testing env has an enbedded grafana with a review dashboad doing queries from relay and also from both influx nodes
 
 http://localhost:3000/d/TEST_INFLUXDB_SRELAY_DASHBOARD/test_influxdb_srelay_dashboard
+http://localhost:3000/d/TEST_INFLUXDB_SRELAY_FLUX/test_influxdb_srelay_flux
 
 
 ![dashboard](./test_dashboard.png)
@@ -57,7 +58,7 @@ Restart to route metrics to a localy started relay
 ```
 cd test
 docker-compose up -d
-sed -i  's|http://relay:9096|http://<YOUR_IP>:9096|g' grafana/datasources/datasource.yam
+sed -i  's|http://relay:9096|http://<YOUR_IP>:9096|g' grafana/datasources/datasource.yaml
 docker-compose restart grafana
 ```
 Start relay with bra (it will execute `.bra.toml` commands and will restart relay on each change)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"io"
 	"io/ioutil"
@@ -191,7 +192,7 @@ func (c *Cluster) handleWriteSingle(w http.ResponseWriter, r *http.Request) []*b
 	authHeader := r.Header.Get("Authorization")
 	relayctx.SetBackendTime(r)
 	b := c.backends[0]
-	resp, err := b.Post(outBytes, query, authHeader, "write", "")
+	resp, err := b.Post(outBytes, query, authHeader, strings.TrimLeft(r.URL.Path, "/"), "")
 	if err != nil {
 		c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.Name(), err)
 	} else {
@@ -240,7 +241,7 @@ func (c *Cluster) handleWriteHA(w http.ResponseWriter, r *http.Request) []*backe
 
 		go func() {
 			defer wg.Done()
-			resp, err := b.Post(outBytes, query, authHeader, "write", "")
+			resp, err := b.Post(outBytes, query, authHeader, strings.TrimLeft(r.URL.Path, "/"), "")
 			if err != nil {
 				c.log.Info().Msgf("Problem posting to cluster %q backend %q: %v", c.cfg.Name, b.Name(), err)
 				responses <- &backend.ResponseData{}
@@ -430,7 +431,12 @@ func (c *Cluster) handleQuery(w http.ResponseWriter, r *http.Request, b *backend
 	paramString := queryParams.Encode()
 	authHeader := r.Header.Get("Authorization")
 	relayctx.SetBackendTime(r)
-	resp, err := b.Query(paramString, authHeader, "query")
+	c.log.Debug().Msgf("QEEEEEEEEEEEERY PATH : %s", r.URL.Path)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		c.log.Error().Msgf("ERROR IN READ QUERY BODY:%s", err)
+	}
+	resp, err := b.Query(r.Method, paramString, authHeader, strings.TrimLeft(r.URL.Path, "/"), body)
 	if err != nil {
 		c.log.Error().Msgf("Problem posting to cluster %s backend %s: %s", c.cfg.Name, b.Name(), err)
 		return

@@ -11,7 +11,7 @@ import (
 
 type poster interface {
 	Post([]byte, string, string, string, string) (*ResponseData, error)
-	Query(string, string, string) (*http.Response, error)
+	Query(string, string, string, string, []byte) (*http.Response, error)
 	GetStats() map[string]string
 }
 
@@ -85,9 +85,9 @@ func (s *simplePoster) Post(buf []byte, query string, auth string, endpoint stri
 	return ret, nil
 }
 
-func (s *simplePoster) Query(params string, authHeader string, endpoint string) (*http.Response, error) {
+func (s *simplePoster) Query(method string, params string, authHeader string, endpoint string, body []byte) (*http.Response, error) {
 
-	req, err := http.NewRequest("GET", s.location+endpoint, nil)
+	req, err := http.NewRequest(method, s.location+endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,14 @@ func (s *simplePoster) Query(params string, authHeader string, endpoint string) 
 	req.URL.RawQuery = params
 
 	req.Header.Set("User-Agent", "influxdb-smart-relay")
+	if len(body) > 0 {
+		req.Header.Add("Accept", "application/csv")
+		req.Header.Add("Content-Type", "application/vnd.flux")
 
-	req.Header.Add("Accept", "application/json")
+	} else {
+		req.Header.Add("Accept", "application/json")
+
+	}
 	if len(authHeader) > 0 {
 		req.Header.Set("Authorization", authHeader)
 	}

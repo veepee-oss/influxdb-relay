@@ -45,7 +45,7 @@ func (c *Cluster) HandleHealth(w http.ResponseWriter, r *http.Request) {
 				Timeout: c.healthTimeout,
 			}
 			start := time.Now()
-			res, err := client.Get(b.URL("ping"))
+			res, err := client.Get(b.URL(b.PingURI()))
 
 			if err != nil {
 

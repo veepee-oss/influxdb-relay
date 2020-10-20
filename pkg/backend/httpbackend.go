@@ -32,6 +32,13 @@ func (b *DbBackend) URL(uri string) string {
 	return b.cfg.Location + uri
 }
 
+func (b *DbBackend) PingURI() string {
+	if len(b.cfg.PingURI) > 0 {
+        	return b.cfg.PingURI
+	}
+	return "ping"
+}
+
 /*func (b *DbBackend) GetStats() map[string]string {
 	return b.poster.getStats()
 }*/

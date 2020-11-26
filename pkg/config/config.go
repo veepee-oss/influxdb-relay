@@ -36,6 +36,7 @@ func (c *Config) GetInfluxDBBackend(name string) *InfluxDBBackend {
 type InfluxDBBackend struct {
 	Name     string `toml:"name"`
 	Location string `toml:"location"`
+	PingURI  string `toml:"ping"`
 	Timeout  string `toml:"timeout"`
 	// Buffer failed writes up to maximum count (default: 0, retry/buffering disabled)
 	BufferSizeMB int `toml:"buffer-size-mb"`
